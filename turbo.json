@@ -1,0 +1,27 @@
+{
+    "$schema": "https://turborepo.com/schema.json",
+    "ui": "tui",
+    "globalEnv": [
+        "MY_AWESOME_ENV_VAR"
+    ],
+    "tasks": {
+        "build": {
+            "dependsOn": ["^build"],
+            "inputs": ["$TURBO_DEFAULT$", ".env*"],
+            "outputs": [".next/**", "!.next/cache/**", "dist/**", "public/**"]
+        },
+        "lint": {
+            "dependsOn": ["^lint"]
+        },
+        "fmt": {
+            "dependsOn": ["^fmt"]
+        },
+        "ts": {
+            "dependsOn": ["^ts"]
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        }
+    }
+}
