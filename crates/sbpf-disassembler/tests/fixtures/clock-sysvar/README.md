@@ -1,1 +1,3 @@
 Copied from `svm/tests/example-programs/clock-sysvar` of https://github.com/anza-xyz/agave from commit `7f7933dee045c49665e5b53a4bd56009cdd93ab3` for live fixtures
+
+Authors: Anza, original example was shipped under Apache 2.0
