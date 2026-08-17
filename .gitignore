@@ -20,7 +20,8 @@ coverage
 
 # Build Outputs
 .next/
-out/
+**/out/**/*
+!**/out/.gitkeep
 build
 dist
 
@@ -37,4 +38,3 @@ yarn-error.log*
 # Rust
 .cache
 target
-out
