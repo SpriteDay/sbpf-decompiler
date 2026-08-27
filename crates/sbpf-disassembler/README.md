@@ -54,11 +54,11 @@ readelf -x .data.rel.ro clock_sysvar_program.so > out/data-rel-ro-hex.txt
 
 ## SIMDs Determined SBPF program versions:
 ### V1
-- [SIMD-0166](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0166-dynamic-stack-frames.md)
+- [SIMD-0166](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0166-dynamic-stack-frames.md) - related features: `manual_stack_frame_bump`, `stack_frame_gaps`
 
 ### V2
 - [SIMD-0173](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0173-sbpf-instruction-encoding-improvements.md)
-- [SIMD-0174](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0174-sbpf-arithmetics-improvements.md)
+- [SIMD-0174](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0174-sbpf-arithmetics-improvements.md) - related features: `enable_pqr`, `explicit_sign_extension_of_results`, `swap_sub_reg_imm_operands`, `disable_neg`
 
 ## V0 Gaps Explanation
 From `sbpf`'s [`memory_region.rs`](https://github.com/anza-xyz/sbpf/blob/2510663bb8d894e8e3094be351e4bb4b604f1f84/src/memory_region.rs#L13):
@@ -80,7 +80,7 @@ From `sbpf`'s [`memory_region.rs`](https://github.com/anza-xyz/sbpf/blob/2510663
     Host:  frame 0 | frame 1 | frame 2 | ...
 ```
 
-## Relocations for pre-V3
+## Relocations for V0
 So we can look at `tests/fixtures/clock_sysvar_program.so` in a relatively readable way via things like `llvm-objdump` but we will be met with a lot of artifacts with calls to `-0x01` and misaligned `llwd` calls:
 ```
      68:	18 02 00 00 a5 84 00 00 00 00 00 00 00 00 00 00	r2 = 0x84a5 ll
@@ -93,6 +93,12 @@ What are these cryptic things? The `call -0x1` cases supposed to be populated ac
 And `lldw` instructions, like `0x84a5 ll` need to be adjusted to the relative address of the program in memory, it also gets done through records of type 8 in `.rel.dyn` according to `sbpf`'s [`elf.rs`](https://github.com/anza-xyz/sbpf/blob/7c4cec587af796228cf49961965233d4d2ed20ca/src/elf.rs#L207)
 
 So things like that get populated only when the program is actually loaded into memory. Binary has instructions what to do to get working program, but it's easier to work with already prepared and loaded version of a program, so we can see actual call targets
+
+## Main SBPF versioning references
+Most important `.md` files:
+1. Bytecode doc - explanation of opcodes and register purposes per versions: https://github.com/anza-xyz/sbpf/blob/main/doc/bytecode.md
+2. Relocations doc - mechanics explanation for relocations for V0,V1,V2: https://github.com/anza-xyz/sbpf/blob/main/doc/relocations.md
+3. Syscalls doc - syscalls mechanics explanation: https://github.com/anza-xyz/sbpf/blob/main/doc/syscalls.md
 
 
 ## Code Highlight
