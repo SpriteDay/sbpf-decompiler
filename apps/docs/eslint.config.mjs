@@ -1,11 +1,12 @@
 import { defineConfig, globalIgnores } from "eslint/config"
 import nextVitals from "eslint-config-next/core-web-vitals"
 import nextTs from "eslint-config-next/typescript"
-import tailwindcssPrettier from "eslint-plugin-tailwindcss-prettier"
+import turboConfig from "eslint-config-turbo/flat"
 
 const eslintConfig = defineConfig([
     ...nextVitals,
     ...nextTs,
+    ...turboConfig,
     {
         files: ["**/*.ts", "**/*.tsx"],
         languageOptions: {
@@ -19,20 +20,10 @@ const eslintConfig = defineConfig([
         },
     },
     {
-        plugins: {
-            "tailwindcss-prettier": tailwindcssPrettier,
-        },
         rules: {
             "@typescript-eslint/no-unused-vars": "off",
             "@next/next/no-sync-scripts": "off",
             "import/no-anonymous-default-export": "off",
-            "tailwindcss-prettier/order": [
-                "warn",
-                {
-                    attributes: [], // Additional attributes to check
-                    functions: ["clsx", "tw", "cn", "cva"], // Function names to check
-                },
-            ],
         },
     },
     // Override default ignores of eslint-config-next.

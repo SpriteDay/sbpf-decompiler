@@ -43,7 +43,7 @@
     "@types/seedrandom": "^3.0.8",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.1.6",
-    "eslint-plugin-tailwindcss-prettier": "^0.1.1",
+    "eslint-config-turbo": "2.5.8",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3"
