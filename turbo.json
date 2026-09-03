@@ -2,7 +2,7 @@
     "$schema": "https://turborepo.com/schema.json",
     "ui": "tui",
     "globalEnv": [
-        "MY_AWESOME_ENV_VAR"
+        "NEXT_PUBLIC_BASE_URL"
     ],
     "tasks": {
         "build": {
