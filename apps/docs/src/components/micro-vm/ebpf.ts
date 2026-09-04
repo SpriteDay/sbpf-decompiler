@@ -39,10 +39,14 @@ const BPF_SUB = 0b0001_0_000
 const BPF_MOV = 0b1011_0_000
 
 // Operation codes -- BPF_JMP32 and BPF_JMP64 classes:
+// BPF JMP operation code: jump.
+const BPF_JA = 0b0000_0_000
 // BPF JMP operation code: jump if equal.
 const BPF_JEQ = 0b0001_0_000
 // BPF JMP operation code: jump if greater.
 const BPF_JGT = 0b0010_0_000
+// BPF JMP operation code: return from program.
+const BPF_EXIT = 0b1001_0_000
 
 // Op codes
 // (Following operation names are not "official", but may be proper to sbpf;
@@ -61,8 +65,12 @@ export const OpCodes = {
     // BPF opcode: `sub64, dst, imm` | `dst -= imm`
     SUB64_IMM: BPF_ALU64_STORE | BPF_K | BPF_SUB,
 
+    // BPF opcode: `ja +off` | `PC += off`
+    JA: BPF_JMP64 | BPF_JA,
     // BPF opcode: `jeq64 dst, imm, +off` | `PC += off if dst == imm`
     JEQ64_IMM: BPF_JMP64 | BPF_K | BPF_JEQ,
     // BPF opcode: `jgt64 dst, imm, +off` | `PC += off if dst > imm`
     JGT64_IMM: BPF_JMP64 | BPF_K | BPF_JGT,
+    // BPF opcode: `exit` | `return r0`
+    EXIT: BPF_JMP64 | BPF_EXIT,
 }
