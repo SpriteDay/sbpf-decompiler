@@ -30,12 +30,17 @@ const BPF_K = 0b0000_0_000
 // BPF source operand modifier: `src` register.
 const BPF_X = 0b0000_1_000
 
+// Operation codes -- BPF_ALU32_LOAD and BPF_ALU64_STORE classes:
+// BPF ALU/ALU64 operation code: addition.
+const BPF_ADD = 0b0000_0_000
 // BPF ALU/ALU64 operation code: move.
 const BPF_MOV = 0b1011_0_000
 
 // Operation codes -- BPF_JMP32 and BPF_JMP64 classes:
 // BPF JMP operation code: jump if equal.
 const BPF_JEQ = 0b0001_0_000
+// BPF JMP operation code: jump if greater.
+const BPF_JGT = 0b0010_0_000
 
 // Op codes
 // (Following operation names are not "official", but may be proper to sbpf;
@@ -49,6 +54,11 @@ export const OpCodes = {
     // BPF opcode: `mov64 dst, src` | `dst = src`
     MOV64_REG: BPF_ALU64_STORE | BPF_X | BPF_MOV,
 
+    // BPF opcode: `add64 dst, imm` | `dst += imm`
+    ADD64_IMM: BPF_ALU64_STORE | BPF_K | BPF_ADD,
+
     // BPF opcode: `jeq64 dst, imm, +off` | `PC += off if dst == imm`
     JEQ64_IMM: BPF_JMP64 | BPF_K | BPF_JEQ,
+    // BPF opcode: `jgt64 dst, imm, +off` | `PC += off if dst > imm`
+    JGT64_IMM: BPF_JMP64 | BPF_K | BPF_JGT,
 }
