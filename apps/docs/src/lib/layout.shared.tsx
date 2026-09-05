@@ -4,7 +4,7 @@ import Image from "next/image"
 // fill this with your actual GitHub info, for example:
 export const gitConfig = {
     user: "SpriteDay",
-    repo: "sbpf-decompiler-docs",
+    repo: "sbpf-decompiler",
     branch: "main",
 }
 
