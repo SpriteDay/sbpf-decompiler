@@ -30,12 +30,24 @@ export const HostBuffer = {
             ),
         }
     },
-    get(hostBuffer: HostBuffer, { range }: { range: [bigint, bigint] }) {
+    get(
+        hostBuffer: HostBuffer,
+        { range }: { range: [bigint, bigint] },
+    ): HostBuffer | null {
         if (range[1] > hostBuffer.value.length) {
             return null
         }
         const newLen = range[1] - range[0]
-        return { dataView: hostBuffer.dataView, off: newLen }
+        const slice = hostBuffer.value.subarray(
+            Number(range[0]),
+            Number(range[1]),
+        )
+        const dataView = new DataView(slice.buffer, 0, Number(newLen))
+        return {
+            dataView: dataView,
+            value: slice,
+            kind: hostBuffer.kind,
+        }
     },
 }
 
@@ -68,8 +80,7 @@ export interface MemoryMapping {
     sbpfVersion: SBPFVersion
     regions: Array<MemoryRegion>
     stackFrameSize: bigint
-    // Typescript specific workaround
-    views: Map<MemoryRegion, DataView>
+    initialized: boolean
 }
 
 export const MemoryMapping = {
@@ -89,7 +100,7 @@ export const MemoryMapping = {
             stackFrameSize: config.stackFrameSize,
             regions,
             sbpfVersion,
-            views: new Map<MemoryRegion, DataView>(),
+            initialized: false,
         }
     },
 
@@ -101,28 +112,55 @@ export const MemoryMapping = {
             vmAddr,
             len,
         }: { accessType: AccessType; vmAddr: bigint; len: bigint },
-    ) {
+    ): HostBuffer | null {
         const searchResult = MemoryMapping.findRegion(memoryMapping, { vmAddr })
         if (searchResult) {
             const { region } = searchResult
             if (region.host.kind === "Mutable" || accessType !== "Store") {
+                return MemoryRegion.vmToHostBuffer(region, {
+                    vmAddr,
+                    len,
+                })
             }
-        } else {
-            throw MemoryMapping.generateAccessViolation(memoryMapping, {
-                accessType,
-                vmAddr,
-                len,
-            })
         }
+        throw MemoryMapping.generateAccessViolation(memoryMapping, {
+            accessType,
+            vmAddr,
+            len,
+        })
     },
 
     /** Loads specified size of bytes at the given guest address. */
     load(
         memoryMapping: MemoryMapping,
         { vmAddr, size }: { vmAddr: bigint; size: 1 | 2 | 4 | 8 },
-    ) {},
+    ): bigint {
+        const len = BigInt.asUintN(64, BigInt(size))
+        if (!memoryMapping.initialized) {
+            throw new Error("Memory mapping is not initialized")
+        }
+        const hostBuffer = MemoryMapping.map(memoryMapping, {
+            accessType: "Load",
+            vmAddr,
+            len,
+        })
+        if (!hostBuffer) {
+            throw new Error("HostBuffer is not defined")
+        }
+        const { dataView } = hostBuffer
+        switch (size) {
+            case 1:
+                return BigInt(dataView.getUint8(Number(len)))
+            case 2:
+                return BigInt(dataView.getUint16(Number(len)))
+            case 4:
+                return BigInt(dataView.getUint32(Number(len)))
+            case 8:
+                return dataView.getBigUint64(Number(len))
+        }
+    },
 
-    /** Returns the `MemoryRegion` which contains the given address. */
+    /** Returns the `MemoryRegion` which may contain the given address. */
     findRegion(
         memoryMapping: MemoryMapping,
         { vmAddr }: { vmAddr: bigint },

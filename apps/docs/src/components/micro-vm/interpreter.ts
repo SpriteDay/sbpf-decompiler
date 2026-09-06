@@ -52,10 +52,14 @@ export const Interpreter = {
                         interpreter.executable.sbpfVersion,
                     )
                 ) {
-                    const vmAddr = interpreter.reg[Number(src)] + insn.off
+                    // Wrapping additioon
+                    const vmAddr = BigInt.asIntN(
+                        64,
+                        interpreter.reg[Number(src)] + insn.off,
+                    )
                     interpreter.reg[Number(dst)] = MemoryMapping.load(
                         interpreter.vm.memoryMapping,
-                        { vmAddr },
+                        { vmAddr, size: 8 },
                     )
                 }
                 break
