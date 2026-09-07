@@ -92,6 +92,16 @@ export const Interpreter = {
             case OpCodes.JA: {
                 nextPc = BigInt.asUintN(64, nextPc + insn.off)
             }
+            case OpCodes.JEQ64_IMM: {
+                if (interpreter.reg[dst] === BigInt.asUintN(64, insn.imm)) {
+                    nextPc = BigInt.asUintN(64, nextPc + insn.off)
+                }
+            }
+            case OpCodes.JGT64_IMM: {
+                if (interpreter.reg[dst] > BigInt.asUintN(64, insn.imm)) {
+                    nextPc = BigInt.asUintN(64, nextPc + insn.off)
+                }
+            }
 
             default: {
                 throw new Error("Unsupported instruction")
