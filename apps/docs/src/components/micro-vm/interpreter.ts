@@ -42,8 +42,8 @@ export const Interpreter = {
         const nextPc = interpreter.reg[11] + 1n
         const insn =
             interpreter.executable.instructions[Number(interpreter.reg[11])]
-        const dst = insn.dst
-        const src = insn.src
+        const dst = Number(insn.dst)
+        const src = Number(insn.src)
 
         switch (insn.opc) {
             case OpCodes.LD_8B_REG: {
@@ -55,14 +55,25 @@ export const Interpreter = {
                     // Wrapping additioon
                     const vmAddr = BigInt.asUintN(
                         64,
-                        interpreter.reg[Number(src)] + insn.off,
+                        interpreter.reg[src] + insn.off,
                     )
-                    interpreter.reg[Number(dst)] = MemoryMapping.load(
+                    interpreter.reg[dst] = MemoryMapping.load(
                         interpreter.vm.memoryMapping,
                         { vmAddr, size: 8 },
                     )
                 }
                 break
+            }
+            case OpCodes.MOV64_IMM: {
+                interpreter.reg[dst] = BigInt.asUintN(64, insn.imm)
+                break
+            }
+            case OpCodes.MOV64_REG: {
+                interpreter.reg[dst] = interpreter.reg[src]
+                break
+            }
+            default: {
+                throw new Error("Unsupported instruction")
             }
         }
 
