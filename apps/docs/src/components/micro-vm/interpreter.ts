@@ -39,7 +39,7 @@ export const Interpreter = {
         if (interpreter.reg[11] >= interpreter.executable.instructions.length) {
             throw new ExecutionOverrun()
         }
-        const nextPc = interpreter.reg[11] + 1n
+        let nextPc = interpreter.reg[11] + 1n
         const insn =
             interpreter.executable.instructions[Number(interpreter.reg[11])]
         const dst = Number(insn.dst)
@@ -87,6 +87,12 @@ export const Interpreter = {
                 interpreter.reg[dst] = interpreter.reg[src]
                 break
             }
+
+            // BPF_JMP64 class
+            case OpCodes.JA: {
+                nextPc = BigInt.asUintN(64, nextPc + insn.off)
+            }
+
             default: {
                 throw new Error("Unsupported instruction")
             }
