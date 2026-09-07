@@ -53,7 +53,7 @@ export const Interpreter = {
                     )
                 ) {
                     // Wrapping additioon
-                    const vmAddr = BigInt.asIntN(
+                    const vmAddr = BigInt.asUintN(
                         64,
                         interpreter.reg[Number(src)] + insn.off,
                     )
