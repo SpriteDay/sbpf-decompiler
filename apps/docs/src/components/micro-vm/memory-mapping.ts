@@ -1,7 +1,11 @@
-import { VIRTUAL_ADDRESS_BITS } from "./ebpf"
+import { MM_REGION_SIZE, VIRTUAL_ADDRESS_BITS } from "./ebpf"
 import { AccessViolation } from "./error"
 import { SBPFVersion } from "./program"
 import { Config } from "./vm"
+
+export interface HostMemoryObject {
+    host: (hostBuffer: HostBuffer) => HostBuffer
+}
 
 export type AccessType = "Load" | "Store"
 
@@ -59,10 +63,46 @@ export interface MemoryRegion {
 }
 
 export const MemoryRegion = {
+    /**
+     * Create a VM memroy region with host `address` pointing to a `len` bytes of data.
+     *
+     * This region will be made available in the guest at `vmAddr`
+     */
+    newInternal({
+        host,
+        vmAddr,
+    }: {
+        host: HostBuffer
+        vmAddr: bigint
+    }): MemoryRegion {
+        return {
+            host,
+            vmAddr,
+        }
+    },
+
+    /**
+     * Creates a new `MemoryRegion` backed by the provided host memory.
+     *
+     * The backing memory must remain allocated for the duration of the returned `MemoryRegion`.
+     */
+    new({ host, vmAddr }: { host: HostBuffer; vmAddr: bigint }): MemoryRegion {
+        return MemoryRegion.newInternal({
+            host,
+            vmAddr,
+        })
+    },
+
+    /**
+     * Convert a virtual machine address into a host slice.
+     *
+     * The returned slice will have exactly `len` bytes. If the provided `vmAddr` does not
+     * correlate to a valid subslice of this region, a `None` will be returned.
+     */
     vmToHostBuffer(
         memoryRegion: MemoryRegion,
         { vmAddr, len }: { vmAddr: bigint; len: bigint },
-    ) {
+    ): HostBuffer | null {
         if (vmAddr < memoryRegion.vmAddr) {
             return null
         }
@@ -102,6 +142,58 @@ export const MemoryMapping = {
             sbpfVersion,
             initialized: false,
         }
+    },
+
+    /** Initialize the memory mapping by sorting its regions and filling gaps */
+    initialize(memoryMapping: MemoryMapping): void {
+        const EMPTY_SLICE = new Uint8Array()
+        memoryMapping.regions.sort((a, b) => {
+            return Number(a.vmAddr - b.vmAddr)
+        })
+        let expectedRegionIndex = 0
+        while (expectedRegionIndex < memoryMapping.regions.length) {
+            const actualRegionIndex =
+                memoryMapping.regions[expectedRegionIndex].vmAddr >>
+                VIRTUAL_ADDRESS_BITS
+            if (actualRegionIndex > expectedRegionIndex) {
+                memoryMapping.regions.splice(
+                    expectedRegionIndex,
+                    0,
+                    MemoryRegion.new({
+                        host: HostBuffer.new({
+                            value: EMPTY_SLICE,
+                            kind: "Mutable",
+                        }),
+                        vmAddr: BigInt(expectedRegionIndex) * MM_REGION_SIZE,
+                    }),
+                )
+            } else if (actualRegionIndex < expectedRegionIndex) {
+                throw new Error(`Invalid memory region: ${actualRegionIndex}`)
+            }
+            expectedRegionIndex = expectedRegionIndex + 1
+        }
+        memoryMapping.initialized = true
+    },
+
+    /**
+     * Creates a new memory mapping.
+     */
+    new({
+        regions,
+        config,
+        sbpfVersion,
+    }: {
+        regions: Array<MemoryRegion>
+        config: Config
+        sbpfVersion: SBPFVersion
+    }): MemoryMapping {
+        const mapping = MemoryMapping.newUnitialized({
+            regions,
+            config,
+            sbpfVersion,
+        })
+        MemoryMapping.initialize(mapping)
+        return mapping
     },
 
     /** Map virtual memory to host memory. */
