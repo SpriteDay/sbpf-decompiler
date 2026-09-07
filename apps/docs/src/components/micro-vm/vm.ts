@@ -1,6 +1,8 @@
+import { FRAME_PTR_REG } from "./ebpf"
 import { Executable } from "./elf"
 import { Interpreter } from "./interpreter"
 import { MemoryMapping } from "./memory-mapping"
+import { BuiltinProgram } from "./program"
 
 export const defaults = {
     DEFAULT_STACK_FRAME_SIZE: 4_096n,
@@ -35,15 +37,25 @@ export interface EbpfVm {
     registers: BigUint64Array
     /** MemoryMapping inlined */
     memoryMapping: MemoryMapping
+    /** Loader built-in program */
+    loader: BuiltinProgram
 }
 
 export const EbpfVm = {
     /** Creates a new virtual machine instance */
-    new({ contextObject }: { contextObject: ContextObject }): EbpfVm {
+    new({
+        loader,
+        contextObject,
+    }: {
+        loader: BuiltinProgram
+        contextObject: ContextObject
+    }): EbpfVm {
         const registers = new BigUint64Array(12).fill(0n)
+        registers[FRAME_PTR_REG] = loader.config.stackFrameSize
         return {
             registers,
             memoryMapping: contextObject.activeMapping,
+            loader,
         }
     },
 

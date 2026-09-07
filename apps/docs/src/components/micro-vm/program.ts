@@ -89,3 +89,8 @@ export const SBPFFeatures = {
         return SBPFVersion[sbpfVersion] >= 3
     },
 }
+
+/** Represents the interface to a fixed functionality program */
+export interface BuiltinProgram {
+    config: Config
+}

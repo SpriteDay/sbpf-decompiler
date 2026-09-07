@@ -7,6 +7,8 @@
 
 /** Size of an eBPF instructions, in bytes. */
 export const INSN_SIZE = 8
+/** Frame pointer register */
+export const FRAME_PTR_REG = 10
 /** Upper half of a pointer is the region index, lower half the virtual address inside that region. */
 export const VIRTUAL_ADDRESS_BITS = 32n
 
