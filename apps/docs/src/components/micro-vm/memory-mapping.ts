@@ -46,7 +46,11 @@ export const HostBuffer = {
             Number(range[0]),
             Number(range[1]),
         )
-        const dataView = new DataView(slice.buffer, 0, Number(newLen))
+        const dataView = new DataView(
+            slice.buffer,
+            Number(range[0]),
+            Number(newLen),
+        )
         return {
             dataView: dataView,
             value: slice,
