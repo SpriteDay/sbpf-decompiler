@@ -34,6 +34,8 @@ export const HostBuffer = {
             ),
         }
     },
+
+    /** Subslice this host buffer with the provided range. */
     get(
         hostBuffer: HostBuffer,
         { range }: { range: [bigint, bigint] },
@@ -48,7 +50,7 @@ export const HostBuffer = {
         )
         const dataView = new DataView(
             slice.buffer,
-            Number(range[0]),
+            slice.byteOffset,
             Number(newLen),
         )
         return {
@@ -246,13 +248,13 @@ export const MemoryMapping = {
         const { dataView } = hostBuffer
         switch (size) {
             case 1:
-                return BigInt(dataView.getUint8(Number(len)))
+                return BigInt(dataView.getUint8(0))
             case 2:
-                return BigInt(dataView.getUint16(Number(len)))
+                return BigInt(dataView.getUint16(0, true))
             case 4:
-                return BigInt(dataView.getUint32(Number(len)))
+                return BigInt(dataView.getUint32(0, true))
             case 8:
-                return dataView.getBigUint64(Number(len))
+                return dataView.getBigUint64(0, true)
         }
     },
 
