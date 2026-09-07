@@ -1,15 +1,18 @@
-import { OpCodes } from "./ebpf"
+import { FIRST_SCRATCH_REGISTER, FRAME_PTR_REG, OpCodes } from "./ebpf"
 import { Executable } from "./elf"
 import { ExecutionOverrun } from "./error"
 import { MemoryMapping } from "./memory-mapping"
 import { SBPFFeatures } from "./program"
-import { EbpfVm } from "./vm"
+import { CallFrame, EbpfVm } from "./vm"
 
 /** State of interpreter */
 export interface Interpreter {
     vm: EbpfVm
-    reg: BigUint64Array
     executable: Executable
+    callFrames: Array<CallFrame>
+
+    /** General purpose registers and pc */
+    reg: BigUint64Array
 }
 
 export const Interpreter = {
@@ -18,14 +21,17 @@ export const Interpreter = {
         vm,
         executable,
         registers,
+        callFrames,
     }: {
         vm: EbpfVm
         executable: Executable
         registers: BigUint64Array
+        callFrames: Array<CallFrame>
     }): Interpreter {
         return {
             vm,
             executable,
+            callFrames,
             reg: registers,
         }
     },
@@ -103,8 +109,23 @@ export const Interpreter = {
                 }
             }
 
+            case OpCodes.EXIT: {
+                if (interpreter.vm.callDepth === 0) {
+                    interpreter.vm.programResult = interpreter.reg[0]
+                    return false
+                }
+                interpreter.vm.callDepth -= 1
+                const frame = interpreter.callFrames[interpreter.vm.callDepth]
+                interpreter.reg[FRAME_PTR_REG] = frame.framePointer
+                interpreter.reg.set(
+                    frame.callerSavedRegisters,
+                    FIRST_SCRATCH_REGISTER,
+                )
+                nextPc = frame.targetPc
+            }
+
             default: {
-                throw new Error("Unsupported instruction")
+                throw new Error(`Unsupported instruction: ${insn.opc}`)
             }
         }
 

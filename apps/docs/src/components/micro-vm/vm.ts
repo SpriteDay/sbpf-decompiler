@@ -13,12 +13,16 @@ export const defaults = {
 
 /** VM configuration settings */
 export interface Config {
+    /** Maximum call depth */
+    maxCallDepth: number
+    /** Size of a stack frame in bytes, must match the size specified in the LLVM BPF backend */
     stackFrameSize: bigint
 }
 
 export const Config = {
     default(): Config {
         return {
+            maxCallDepth: 64,
             stackFrameSize: defaults.getStackFrameSize(),
         }
     },
@@ -29,12 +33,31 @@ export interface ContextObject {
     activeMapping: MemoryMapping
 }
 
+/** A call frame used for function calls inside the Interpreter */
+export interface CallFrame {
+    /** The caller saved registers */
+    callerSavedRegisters: BigUint64Array
+    /** The callers frame pointer */
+    framePointer: bigint
+    /** The targetPc of the exit instrction which returns back to the caller */
+    targetPc: bigint
+}
+
 /**
  * A virtual machine to run eBPF programs.
  */
 export interface EbpfVm {
+    /**
+     * The current call depth.
+     *
+     * Incremented on calls and discriminated on exits. It's used to enforce
+     * config.maxCallDepth and to know when to terminate execution.
+     */
+    callDepth: number
     /** Registers inlined */
     registers: BigUint64Array
+    /** Program result inlined */
+    programResult: bigint
     /** MemoryMapping inlined */
     memoryMapping: MemoryMapping
     /** Loader built-in program */
@@ -56,7 +79,9 @@ export const EbpfVm = {
             MM_STACK_START + loader.config.stackFrameSize,
         )
         return {
+            callDepth: 0,
             registers,
+            programResult: 0n,
             memoryMapping: contextObject.activeMapping,
             loader,
         }
@@ -67,12 +92,16 @@ export const EbpfVm = {
      */
     executeProgram(
         vm: EbpfVm,
-        { executable }: { executable: Executable },
+        {
+            executable,
+            callFrames,
+        }: { executable: Executable; callFrames: Array<CallFrame> },
     ): number {
         const program_result = 0
         const interpreter = Interpreter.new({
             vm,
             executable,
+            callFrames,
             registers: vm.registers,
         })
         runInterpreter(interpreter)

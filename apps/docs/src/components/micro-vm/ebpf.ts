@@ -9,6 +9,10 @@
 export const INSN_SIZE = 8
 /** Frame pointer register */
 export const FRAME_PTR_REG = 10
+/** First scratch register */
+export const FIRST_SCRATCH_REGISTER = 6
+/** Number of scratch registers */
+export const SCRATCH_REGS = 4
 /** Upper half of a pointer is the region index, lower half the virtual address inside that region. */
 export const VIRTUAL_ADDRESS_BITS = 32n
 
