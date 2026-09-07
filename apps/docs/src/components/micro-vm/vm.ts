@@ -1,4 +1,4 @@
-import { FRAME_PTR_REG } from "./ebpf"
+import { FRAME_PTR_REG, MM_STACK_START } from "./ebpf"
 import { Executable } from "./elf"
 import { Interpreter } from "./interpreter"
 import { MemoryMapping } from "./memory-mapping"
@@ -51,7 +51,10 @@ export const EbpfVm = {
         contextObject: ContextObject
     }): EbpfVm {
         const registers = new BigUint64Array(12).fill(0n)
-        registers[FRAME_PTR_REG] = loader.config.stackFrameSize
+        registers[FRAME_PTR_REG] = BigInt.asUintN(
+            64,
+            MM_STACK_START + loader.config.stackFrameSize,
+        )
         return {
             registers,
             memoryMapping: contextObject.activeMapping,
