@@ -46,6 +46,7 @@ export const Interpreter = {
         const src = Number(insn.src)
 
         switch (insn.opc) {
+            // BPF_ALU32_LOAD class
             case OpCodes.LD_8B_REG: {
                 if (
                     SBPFFeatures.moveMemoryInstructionClasses(
@@ -63,6 +64,20 @@ export const Interpreter = {
                     )
                 }
                 break
+            }
+
+            // BPF_ALU64_STORE class
+            case OpCodes.ADD64_IMM: {
+                interpreter.reg[dst] = BigInt.asUintN(
+                    64,
+                    interpreter.reg[dst] + insn.imm,
+                )
+            }
+            case OpCodes.SUB64_IMM: {
+                interpreter.reg[dst] = BigInt.asUintN(
+                    64,
+                    interpreter.reg[dst] - insn.imm,
+                )
             }
             case OpCodes.MOV64_IMM: {
                 interpreter.reg[dst] = BigInt.asUintN(64, insn.imm)
