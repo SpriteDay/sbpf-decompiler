@@ -1,3 +1,5 @@
+"use client"
+
 import { Insn, OpCodes } from "@/components/micro-vm/ebpf"
 import {
     Card,
@@ -50,7 +52,7 @@ export function SimpleSbpfLoop() {
                 />
             </CardContent>
             <CardFooter className="flex-col items-start gap-4 text-sm">
-                <div className="flex w-full flex-col items-center gap-4 md:w-2/3">
+                <div className="flex w-full flex-col items-center gap-4 ">
                     <Label>
                         Current instruction number:{" "}
                         <span className="font-bold tabular-nums font-mono">
@@ -67,7 +69,7 @@ export function SimpleSbpfLoop() {
                         step={1}
                         className="mx-auto w-full"
                     />
-                    <div className="w-full justify justify-between items-center">
+                    <div className="w-full flex justify-center items-center gap-4">
                         <Button
                             disabled={currentInstruction === 0}
                             onClick={() =>

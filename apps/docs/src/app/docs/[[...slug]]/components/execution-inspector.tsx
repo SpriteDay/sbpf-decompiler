@@ -1,3 +1,4 @@
+"use client"
 import { Insn } from "@/components/micro-vm/ebpf"
 import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 import {
@@ -36,29 +37,29 @@ export function ExecutionInspector({
                 result.push(index)
             }
         })
-        return changedRegisters
+        return result
     }, [programResult.registerTrace, currentRegistersState, currentInstruction])
 
     return (
         <ResizablePanelGroup
             orientation="horizontal"
-            className="max-w-sm rounded-lg border"
+            className=" rounded-lg border"
         >
             <ResizablePanel defaultSize="50%">
-                <div className="flex h-50 justify-center p-2">
+                <div className="flex justify-center p-2 flex-col gap-1">
                     {program.map((instruction, index) => {
                         return (
                             <span
                                 key={index}
                                 className={cn(
-                                    "font-semibold font-mono",
+                                    "font-semibold font-mono rounded-sm px-1",
                                     index === currentInstruction &&
                                         "bg-foreground text-background",
                                     index === currentInstruction - 1 &&
                                         "bg-amber-200/20",
                                 )}
                             >
-                                {formatInstruction(instruction)}
+                                {index + 1}: {formatInstruction(instruction)}
                             </span>
                         )
                     })}
@@ -66,7 +67,7 @@ export function ExecutionInspector({
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize="50%">
-                <div className="flex flex-col gap-2 p-2">
+                <div className="flex flex-col gap-1 p-2">
                     {Array.from(currentRegistersState, (reg, index) => (
                         <span
                             key={index}
@@ -76,7 +77,7 @@ export function ExecutionInspector({
                                     "bg-amber-200/20 font-semibold",
                             )}
                         >
-                            r{index}: {reg.toString(16)}
+                            r{index}: 0x{reg.toString(16)}
                         </span>
                     ))}
                 </div>
