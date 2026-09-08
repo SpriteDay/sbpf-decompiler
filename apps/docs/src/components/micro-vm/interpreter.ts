@@ -42,6 +42,8 @@ export const Interpreter = {
      * Returns false if the program terminated or threw an error
      */
     step(interpreter: Interpreter): boolean {
+        const config = interpreter.vm.loader.config
+
         if (interpreter.reg[11] >= interpreter.executable.instructions.length) {
             throw new ExecutionOverrun()
         }
@@ -50,6 +52,10 @@ export const Interpreter = {
             interpreter.executable.instructions[Number(interpreter.reg[11])]
         const dst = Number(insn.dst)
         const src = Number(insn.src)
+
+        if (config.enableRegisterTracing) {
+            interpreter.vm.registerTrace.push(interpreter.reg)
+        }
 
         switch (insn.opc) {
             // BPF_ALU32_LOAD class

@@ -11,7 +11,7 @@ import { HostBuffer, MemoryMapping, MemoryRegion } from "./memory-mapping"
 import { BuiltinProgram } from "./program"
 import { CallFrame, Config, ContextObject, EbpfVm } from "./vm"
 
-export function runV3Instructions({
+export function runV3InstructionsWithTracing({
     instructions,
 }: {
     instructions: Array<Insn>
@@ -23,7 +23,9 @@ export function runV3Instructions({
         sbpfVersion: "V3",
     }
     const rodata = new Uint8Array()
-    const loader = BuiltinProgram.new({ config: Config.default() })
+    const config = Config.default()
+    config.enableRegisterTracing = true
+    const loader = BuiltinProgram.new({ config })
     const sbpfVersion = executable.sbpfVersion
 
     const stack = new Uint8Array(
@@ -70,5 +72,5 @@ export function runV3Instructions({
         return defaultCallFrame
     })
     const programResult = EbpfVm.executeProgram(vm, { executable, callFrames })
-    return programResult
+    return { programResult, registerTrace: vm.registerTrace }
 }

@@ -17,6 +17,8 @@ export interface Config {
     maxCallDepth: number
     /** Size of a stack frame in bytes, must match the size specified in the LLVM BPF backend */
     stackFrameSize: bigint
+    /** Enable instruction tracing */
+    enableRegisterTracing: boolean
 }
 
 export const Config = {
@@ -24,6 +26,7 @@ export const Config = {
         return {
             maxCallDepth: 64,
             stackFrameSize: defaults.getStackFrameSize(),
+            enableRegisterTracing: false,
         }
     },
 }
@@ -62,6 +65,8 @@ export interface EbpfVm {
     memoryMapping: MemoryMapping
     /** Loader built-in program */
     loader: BuiltinProgram
+    /** Collector for the instrcution trace */
+    registerTrace: Array<BigUint64Array>
 }
 
 export const EbpfVm = {
@@ -84,6 +89,7 @@ export const EbpfVm = {
             programResult: 0n,
             memoryMapping: contextObject.activeMapping,
             loader,
+            registerTrace: [],
         }
     },
 
