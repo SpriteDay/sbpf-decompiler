@@ -10,12 +10,13 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { ExecutionInspector } from "../components/execution-inspector"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Label } from "@/components/ui/label"
 import { WideSlider } from "@/components/custom/wide-slider"
 import { Button } from "@/components/ui/button"
+import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 
-const program: Array<Insn> = [
+const Program: Array<Insn> = [
     { ptr: 0x00n, opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0n },
     // biome-ignore format: Keeping all of the instructions in one line
     { ptr: 0x00n, opc: OpCodes.LD_8B_REG, dst: 2n, src: 10n, off: -8n, imm: 0n },
@@ -30,59 +31,62 @@ const program: Array<Insn> = [
 ]
 
 export function SimpleSbpfLoop() {
-    const [currentInstruction, setCurrentInstruction] = useState(0)
-    const updateCurrentInstruction = useCallback((newValue: number) => {
-        if (newValue > program.length || newValue <= 0) {
-            return
-        }
-        setCurrentInstruction(newValue)
+    const [currentStep, setCurrentStep] = useState(0)
+    const { registerTrace } = useMemo(() => {
+        return runV3InstructionsWithTracing({ instructions: Program })
     }, [])
+    const updateCurrentStep = useCallback(
+        (newValue: number) => {
+            if (newValue > registerTrace.length - 1 || newValue < 0) {
+                return
+            }
+            setCurrentStep(newValue)
+        },
+        [registerTrace],
+    )
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Example of modulo with 12 hours clock</CardTitle>
+                <CardTitle>Example of a simple SBPF loop program</CardTitle>
                 <CardDescription>
-                    Use slider to count more hours
+                    Use slider or buttons to step through execution
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center py-2">
                 <ExecutionInspector
-                    program={program}
-                    currentInstruction={currentInstruction}
+                    instructions={Program}
+                    registerTrace={registerTrace}
+                    currentStep={currentStep}
                 />
             </CardContent>
             <CardFooter className="flex-col items-start gap-4 text-sm">
                 <div className="flex w-full flex-col items-center gap-4 ">
                     <Label>
-                        Current instruction number:{" "}
+                        Current step:{" "}
                         <span className="font-bold tabular-nums font-mono">
-                            {currentInstruction}
+                            {currentStep + 1}
                         </span>
                     </Label>
                     <WideSlider
-                        defaultValue={[0]}
+                        value={[currentStep]}
                         onValueChange={(value) => {
-                            updateCurrentInstruction(value as number)
+                            updateCurrentStep(value as number)
                         }}
                         min={0}
-                        max={program.length}
+                        max={registerTrace.length - 1}
                         step={1}
                         className="mx-auto w-full"
                     />
                     <div className="w-full flex justify-center items-center gap-4">
                         <Button
-                            disabled={currentInstruction === 0}
-                            onClick={() =>
-                                updateCurrentInstruction(currentInstruction - 1)
-                            }
+                            disabled={currentStep === 0}
+                            onClick={() => updateCurrentStep(currentStep - 1)}
                         >
                             Previous
                         </Button>
                         <Button
-                            disabled={currentInstruction === program.length - 1}
-                            onClick={() =>
-                                updateCurrentInstruction(currentInstruction + 1)
-                            }
+                            disabled={currentStep === registerTrace.length - 1}
+                            onClick={() => updateCurrentStep(currentStep + 1)}
                         >
                             Next
                         </Button>

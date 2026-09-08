@@ -1,6 +1,5 @@
 "use client"
 import { Insn } from "@/components/micro-vm/ebpf"
-import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -11,34 +10,34 @@ import { useMemo } from "react"
 import { formatInstruction } from "./utils"
 
 export function ExecutionInspector({
-    program,
-    currentInstruction,
+    instructions,
+    currentStep,
+    registerTrace,
 }: {
-    program: Array<Insn>
-    currentInstruction: number
+    instructions: Array<Insn>
+    currentStep: number
+    registerTrace: Array<BigUint64Array>
 }) {
-    const programResult = useMemo(() => {
-        return runV3InstructionsWithTracing({ instructions: program })
-    }, [program])
-
     const currentRegistersState = useMemo(() => {
-        return programResult.registerTrace[currentInstruction]
-    }, [programResult, currentInstruction])
+        return registerTrace[currentStep]
+    }, [registerTrace, currentStep])
+
+    const currentPc = currentRegistersState[11]
+    const prevPc = currentStep <= 0 ? -1 : registerTrace[currentStep - 1][11]
 
     const changedRegisters: Array<number> = useMemo(() => {
         const result: Array<number> = []
-        if (currentInstruction === 0) {
+        if (currentStep === 0) {
             return result
         }
-        const prevRegistersState =
-            programResult.registerTrace[currentInstruction - 1]
+        const prevRegistersState = registerTrace[currentStep - 1]
         currentRegistersState.forEach((reg, index) => {
             if (reg !== prevRegistersState[index]) {
                 result.push(index)
             }
         })
         return result
-    }, [programResult.registerTrace, currentRegistersState, currentInstruction])
+    }, [registerTrace, currentRegistersState, currentStep])
 
     return (
         <ResizablePanelGroup
@@ -47,19 +46,19 @@ export function ExecutionInspector({
         >
             <ResizablePanel defaultSize="50%">
                 <div className="flex justify-center p-2 flex-col gap-1">
-                    {program.map((instruction, index) => {
+                    {instructions.map((instruction, index) => {
                         return (
                             <span
                                 key={index}
                                 className={cn(
                                     "font-semibold font-mono rounded-sm px-1",
-                                    index === currentInstruction &&
+                                    BigInt(index) === currentPc &&
                                         "bg-foreground text-background",
-                                    index === currentInstruction - 1 &&
+                                    BigInt(index) === prevPc &&
                                         "bg-amber-200/20",
                                 )}
                             >
-                                {index + 1}: {formatInstruction(instruction)}
+                                {index}: {formatInstruction(instruction)}
                             </span>
                         )
                     })}
@@ -77,7 +76,9 @@ export function ExecutionInspector({
                                     "bg-amber-200/20 font-semibold",
                             )}
                         >
-                            r{index}: 0x{reg.toString(16)}
+                            {index === 11
+                                ? `pc: ${reg}`
+                                : `r${index}: 0x${reg.toString(16)}`}
                         </span>
                     ))}
                 </div>
