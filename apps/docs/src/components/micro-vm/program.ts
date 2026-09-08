@@ -94,3 +94,11 @@ export const SBPFFeatures = {
 export interface BuiltinProgram {
     config: Config
 }
+
+export const BuiltinProgram = {
+    new({ config }: { config: Config }): BuiltinProgram {
+        return {
+            config,
+        }
+    },
+}
