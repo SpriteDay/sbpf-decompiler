@@ -1,5 +1,17 @@
 import { Insn, OpCodes } from "@/components/micro-vm/ebpf"
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card"
 import { ExecutionInspector } from "../components/execution-inspector"
+import { useCallback, useState } from "react"
+import { Label } from "@/components/ui/label"
+import { WideSlider } from "@/components/custom/wide-slider"
+import { Button } from "@/components/ui/button"
 
 const program: Array<Insn> = [
     { ptr: 0x00n, opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0n },
@@ -16,5 +28,65 @@ const program: Array<Insn> = [
 ]
 
 export function SimpleSbpfLoop() {
-    return <ExecutionInspector program={program} />
+    const [currentInstruction, setCurrentInstruction] = useState(0)
+    const updateCurrentInstruction = useCallback((newValue: number) => {
+        if (newValue > program.length || newValue <= 0) {
+            return
+        }
+        setCurrentInstruction(newValue)
+    }, [])
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Example of modulo with 12 hours clock</CardTitle>
+                <CardDescription>
+                    Use slider to count more hours
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center py-2">
+                <ExecutionInspector
+                    program={program}
+                    currentInstruction={currentInstruction}
+                />
+            </CardContent>
+            <CardFooter className="flex-col items-start gap-4 text-sm">
+                <div className="flex w-full flex-col items-center gap-4 md:w-2/3">
+                    <Label>
+                        Current instruction number:{" "}
+                        <span className="font-bold tabular-nums font-mono">
+                            {currentInstruction}
+                        </span>
+                    </Label>
+                    <WideSlider
+                        defaultValue={[0]}
+                        onValueChange={(value) => {
+                            updateCurrentInstruction(value as number)
+                        }}
+                        min={0}
+                        max={program.length}
+                        step={1}
+                        className="mx-auto w-full"
+                    />
+                    <div className="w-full justify justify-between items-center">
+                        <Button
+                            disabled={currentInstruction === 0}
+                            onClick={() =>
+                                updateCurrentInstruction(currentInstruction - 1)
+                            }
+                        >
+                            Previous
+                        </Button>
+                        <Button
+                            disabled={currentInstruction === program.length - 1}
+                            onClick={() =>
+                                updateCurrentInstruction(currentInstruction + 1)
+                            }
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
+            </CardFooter>
+        </Card>
+    )
 }
