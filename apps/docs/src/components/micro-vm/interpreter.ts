@@ -84,12 +84,14 @@ export const Interpreter = {
                     64,
                     interpreter.reg[dst] + insn.imm,
                 )
+                break
             }
             case OpCodes.SUB64_IMM: {
                 interpreter.reg[dst] = BigInt.asUintN(
                     64,
                     interpreter.reg[dst] - insn.imm,
                 )
+                break
             }
             case OpCodes.MOV64_IMM: {
                 interpreter.reg[dst] = BigInt.asUintN(64, insn.imm)
@@ -103,16 +105,19 @@ export const Interpreter = {
             // BPF_JMP64 class
             case OpCodes.JA: {
                 nextPc = BigInt.asUintN(64, nextPc + insn.off)
+                break
             }
             case OpCodes.JEQ64_IMM: {
                 if (interpreter.reg[dst] === BigInt.asUintN(64, insn.imm)) {
                     nextPc = BigInt.asUintN(64, nextPc + insn.off)
                 }
+                break
             }
             case OpCodes.JGT64_IMM: {
                 if (interpreter.reg[dst] > BigInt.asUintN(64, insn.imm)) {
                     nextPc = BigInt.asUintN(64, nextPc + insn.off)
                 }
+                break
             }
 
             case OpCodes.EXIT: {
@@ -128,6 +133,7 @@ export const Interpreter = {
                     FIRST_SCRATCH_REGISTER,
                 )
                 nextPc = frame.targetPc
+                break
             }
 
             default: {
