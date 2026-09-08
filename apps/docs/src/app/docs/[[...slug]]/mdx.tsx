@@ -1,11 +1,11 @@
 import defaultMdxComponents from "fumadocs-ui/mdx"
 import type { MDXComponents } from "mdx/types"
-import { TestComponent } from "./01-control-flow-graph/1-test-component"
+import { SimpleSbpfLoop } from "./01-control-flow-graph/1-simple-sbpf-loop"
 
 export function getMDXComponents(components?: MDXComponents) {
     return {
         ...defaultMdxComponents,
-        TestComponent,
+        TestComponent: SimpleSbpfLoop,
         ...components,
     } satisfies MDXComponents
 }
