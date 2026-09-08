@@ -95,6 +95,8 @@ export const OpCodes = {
 
     /** BPF opcode: `add64 dst, imm` | `dst += imm` */
     ADD64_IMM: BPF_ALU64_STORE | BPF_K | BPF_ADD,
+    /** BPF opcode: `add64 dst, src` | `dst += src` */
+    ADD64_REG: BPF_ALU64_STORE | BPF_X | BPF_ADD,
     /** BPF opcode: `sub64, dst, imm` | `dst -= imm` */
     SUB64_IMM: BPF_ALU64_STORE | BPF_K | BPF_SUB,
 

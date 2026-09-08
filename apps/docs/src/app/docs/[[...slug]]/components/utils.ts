@@ -38,6 +38,13 @@ export function formatInstruction(insn: Insn, style?: FomrattingStyle): string {
             }
             break
         }
+        case OpCodes.ADD64_REG: {
+            formatted = {
+                "LLVM": `${dst} += ${src}`,
+                "NASM": `add64 ${dst}, ${src}`,
+            }
+            break
+        }
         case OpCodes.SUB64_IMM: {
             formatted = {
                 "LLVM": `${dst} -= ${imm}`,

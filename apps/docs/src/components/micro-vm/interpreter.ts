@@ -88,6 +88,13 @@ export const Interpreter = {
                 )
                 break
             }
+            case OpCodes.ADD64_REG: {
+                interpreter.reg[dst] = BigInt.asUintN(
+                    64,
+                    interpreter.reg[dst] + interpreter.reg[src],
+                )
+                break
+            }
             case OpCodes.SUB64_IMM: {
                 interpreter.reg[dst] = BigInt.asUintN(
                     64,

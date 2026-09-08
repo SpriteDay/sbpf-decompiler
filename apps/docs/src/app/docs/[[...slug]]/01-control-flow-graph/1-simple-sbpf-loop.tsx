@@ -18,14 +18,16 @@ import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 
 const Program: Array<Insn> = [
     { ptr: 0x00n, opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0n },
+    { ptr: 0x00n, opc: OpCodes.MOV64_IMM, dst: 2n, src: 0n, off: 0n, imm: 3n },
     // biome-ignore format: Keeping all of the instructions in one line
-    { ptr: 0x00n, opc: OpCodes.LD_8B_REG, dst: 2n, src: 10n, off: -8n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.JEQ64_IMM, dst: 2n, src: 0n, off: 4n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.ADD64_IMM, dst: 1n, src: 0n, off: 0n, imm: 1n },
+    { ptr: 0x00n, opc: OpCodes.JEQ64_IMM, dst: 2n, src: 0n, off: 6n, imm: 0n },
     // biome-ignore format: Keeping all of the instructions in one line
-    { ptr: 0x00n, opc: OpCodes.JGT64_IMM, dst: 2n, src: 0n, off: 2n, imm: 100n },
+    { ptr: 0x00n, opc: OpCodes.JGT64_IMM, dst: 2n, src: 0n, off: 2n, imm: 10n },
+    { ptr: 0x00n, opc: OpCodes.ADD64_REG, dst: 1n, src: 2n, off: 0n, imm: 0n },
+    { ptr: 0x00n, opc: OpCodes.JA, dst: 0n, src: 0n, off: 1n, imm: 0n },
+    { ptr: 0x00n, opc: OpCodes.ADD64_IMM, dst: 1n, src: 0n, off: 0n, imm: 10n },
     { ptr: 0x00n, opc: OpCodes.SUB64_IMM, dst: 2n, src: 0n, off: 0n, imm: 1n },
-    { ptr: 0x00n, opc: OpCodes.JA, dst: 0n, src: 0n, off: -5n, imm: 0n },
+    { ptr: 0x00n, opc: OpCodes.JA, dst: 0n, src: 0n, off: -7n, imm: 0n },
     { ptr: 0x00n, opc: OpCodes.MOV64_REG, dst: 0n, src: 1n, off: 0n, imm: 0n },
     { ptr: 0x00n, opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0n },
 ]
