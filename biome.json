@@ -34,7 +34,13 @@
                 "noUnusedFunctionParameters": "warn",
                 "useHookAtTopLevel": "error"
             },
-            "style": { "useBlockStatements": "off" },
+            "style": {
+                "useBlockStatements": "off", 
+                "useConst": {
+                    "level":"warn",
+                    "fix": "none"
+                }
+            },
             "suspicious": { "noConsole": "error", "noExplicitAny": "error" }
         }
     },
