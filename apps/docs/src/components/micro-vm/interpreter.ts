@@ -54,7 +54,9 @@ export const Interpreter = {
         const src = Number(insn.src)
 
         if (config.enableRegisterTracing) {
-            interpreter.vm.registerTrace.push(interpreter.reg)
+            interpreter.vm.registerTrace.push(
+                new BigUint64Array(interpreter.reg),
+            )
         }
 
         switch (insn.opc) {
