@@ -77,7 +77,7 @@ export function SimpleSbpfLoop() {
                         min={0}
                         max={registerTrace.length - 1}
                         step={1}
-                        className="mx-auto w-full"
+                        className="mx-auto w-full max-w-lg"
                     />
                     <div className="w-full flex justify-center items-center gap-4">
                         <Button
