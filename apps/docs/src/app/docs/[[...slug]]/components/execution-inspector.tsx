@@ -6,8 +6,9 @@ import {
     ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { cn } from "@/lib/utils"
-import { useMemo } from "react"
-import { formatInstruction } from "./utils"
+import { useMemo, useState } from "react"
+import { FomrattingStyle, formatInstruction } from "./utils"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ExecutionInspector({
     instructions,
@@ -18,6 +19,8 @@ export function ExecutionInspector({
     currentStep: number
     registerTrace: Array<BigUint64Array>
 }) {
+    const [formatStyle, setFormatStyle] = useState<FomrattingStyle>("NASM")
+
     const currentRegistersState = useMemo(() => {
         return registerTrace[currentStep]
     }, [registerTrace, currentStep])
@@ -42,10 +45,26 @@ export function ExecutionInspector({
     return (
         <ResizablePanelGroup
             orientation="horizontal"
-            className=" rounded-lg border"
+            className="relative rounded-lg border"
         >
+            <div className="absolute top-2 right-2 z-10">
+                <ToggleGroup
+                    variant="outline"
+                    value={[formatStyle]}
+                    onValueChange={(value) =>
+                        setFormatStyle(value[0] as FomrattingStyle)
+                    }
+                >
+                    <ToggleGroupItem value="NASM" aria-label="Toggle all">
+                        NASM
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="LLVM" aria-label="Toggle missed">
+                        LLVM
+                    </ToggleGroupItem>
+                </ToggleGroup>
+            </div>
             <ResizablePanel defaultSize="50%">
-                <div className="flex justify-center p-2 flex-col gap-1">
+                <div className="flex justify-center p-2 flex-col gap-1 ">
                     {instructions.map((instruction, index) => {
                         return (
                             <span
@@ -58,7 +77,8 @@ export function ExecutionInspector({
                                         "bg-amber-200/20",
                                 )}
                             >
-                                {index}: {formatInstruction(instruction)}
+                                {index}:{" "}
+                                {formatInstruction(instruction, formatStyle)}
                             </span>
                         )
                     })}
