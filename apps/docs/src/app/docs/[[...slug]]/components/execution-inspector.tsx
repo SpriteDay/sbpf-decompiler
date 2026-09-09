@@ -47,7 +47,7 @@ export function ExecutionInspector({
             orientation="horizontal"
             className="relative rounded-lg border"
         >
-            <div className="absolute top-2 right-2 z-10">
+            <div className="absolute top-2 right-2 z-10 opacity-90">
                 <ToggleGroup
                     variant="outline"
                     value={[formatStyle]}
@@ -74,7 +74,7 @@ export function ExecutionInspector({
                                     BigInt(index) === currentPc &&
                                         "bg-foreground text-background",
                                     BigInt(index) === prevPc &&
-                                        "bg-amber-200/20",
+                                        "bg-amber-950/10 dark:bg-amber-200/20",
                                 )}
                             >
                                 {index}:{" "}
@@ -91,9 +91,9 @@ export function ExecutionInspector({
                         <span
                             key={index}
                             className={cn(
-                                "font-mono",
+                                "font-mono rounded-sm px-1",
                                 changedRegisters.includes(index) &&
-                                    "bg-amber-200/20 font-semibold",
+                                    "bg-amber-950/10 dark:bg-amber-200/20 font-semibold",
                             )}
                         >
                             {index === 11
