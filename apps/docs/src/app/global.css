@@ -81,8 +81,8 @@
 }
 
 :root {
-    --tint-hue: 180;
-    --tint-chroma: 0.1;
+    --tint-hue: 110;
+    --tint-chroma: 0.005;
     --radius: 0.625rem;
 
     /* fumadocs palette — light mode (tinted) */
@@ -127,7 +127,7 @@
 }
 
 .dark {
-    --tint-hue: 180;
+    --tint-hue: 250;
     --tint-chroma: 0.005;
 
     /* fumadocs palette — dark mode (tinted) */
@@ -159,7 +159,7 @@
     --chart-5: oklch(0.269 0 0);
     --sidebar: oklch(20.5% var(--tint-chroma) var(--tint-hue));
     --sidebar-foreground: oklch(98.5% var(--tint-chroma) var(--tint-hue));
-    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary: oklch(47.192% 0.18668 265.625);
     --sidebar-primary-foreground: oklch(
         98.5% var(--tint-chroma) var(--tint-hue)
     );

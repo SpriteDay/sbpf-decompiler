@@ -54,7 +54,7 @@ export function WideSlider({
                 >
                     <SliderPrimitive.Indicator
                         data-slot="slider-range"
-                        className="bg-indigo-400 select-none data-horizontal:h-full data-vertical:w-full"
+                        className="bg-indigo-800 dark:bg-indigo-400 select-none data-horizontal:h-full data-vertical:w-full"
                     />
                 </SliderPrimitive.Track>
                 {Array.from({ length: _values.length }, (_, index) => (
