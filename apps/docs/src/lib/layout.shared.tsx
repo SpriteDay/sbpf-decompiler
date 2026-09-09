@@ -21,7 +21,7 @@ export function baseOptions(): BaseLayoutProps {
                         className="rounded-sm dark:mix-blend-screen"
                     />
                     <span className="text-[1rem] font-medium tracking-tight">
-                        SBFP Decompilation
+                        SBPF Decompilation
                     </span>
                 </div>
             ),
