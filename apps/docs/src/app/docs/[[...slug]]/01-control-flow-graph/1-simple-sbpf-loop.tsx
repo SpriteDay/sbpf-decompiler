@@ -81,12 +81,14 @@ export function SimpleSbpfLoop() {
                     />
                     <div className="w-full flex justify-center items-center gap-4">
                         <Button
+                            className="w-[10ch]"
                             disabled={currentStep === 0}
                             onClick={() => updateCurrentStep(currentStep - 1)}
                         >
                             Previous
                         </Button>
                         <Button
+                            className="w-[10ch]"
                             disabled={currentStep === registerTrace.length - 1}
                             onClick={() => updateCurrentStep(currentStep + 1)}
                         >
