@@ -36,6 +36,27 @@ export interface ContextObject {
     activeMapping: MemoryMapping
 }
 
+/** Statistics of token branches (from a record trace) */
+export interface DynamicAnalysis {
+    edgeCounterMax: number
+    edges: Record<number, Record<number, number>>
+}
+
+export const DynamicAnalysis = {
+    /** Accumulates a trace */
+    new({
+        registerTrace,
+    }: {
+        registerTrace: Array<BigInt64Array>
+    }): DynamicAnalysis {
+        const result: DynamicAnalysis = {
+            edgeCounterMax: 0,
+            edges: {},
+        }
+        return result
+    },
+}
+
 /** A call frame used for function calls inside the Interpreter */
 export interface CallFrame {
     /** The caller saved registers */
