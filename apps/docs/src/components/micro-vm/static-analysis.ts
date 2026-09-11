@@ -1,0 +1,41 @@
+import { Insn } from "./ebpf"
+import { Executable } from "./elf"
+
+/** A node of the control-flow graph */
+export interface CfgNode {
+    /** Human readable name */
+    label: string
+    /** Predesessors which can jump to the start of this basic block */
+    sources: Array<number>
+    /** Successors which the end of this basic block can jump to */
+    destinations: Array<number>
+    /** Range of the instructions belonging to this basic block */
+    instructions: [number, number]
+}
+
+export const CfgNode = {
+    default(): CfgNode {
+        return {
+            label: "",
+            sources: [],
+            destinations: [],
+            instructions: [0, 0],
+        }
+    },
+}
+
+/** Result of the executable analysis */
+export interface Analysis {
+    /** The program which is analyzed */
+    executable: Executable
+    /** Plain list of instructions as they occur in the executable */
+    instructions: Array<Insn>
+    /** Functions in the executable */
+    functions: Map<number, [number, string]>
+    /** Nodes of the control-flow graph */
+    cfgNodes: Map<number, CfgNode>
+    /** CfgNode where the execution starts */
+    entrypoint: number
+    /** Virtual CfgNode that reaches all functions */
+    superRoot: number
+}
