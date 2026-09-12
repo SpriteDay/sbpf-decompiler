@@ -5,6 +5,9 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+import { Hash } from "./dependencies/hash"
+import { Hasher as MurMur3Hasher } from "./dependencies/murmur3"
+
 /** Size of an eBPF instructions, in bytes. */
 export const INSN_SIZE = 8
 /** Frame pointer register */
@@ -132,3 +135,8 @@ export interface Insn {
  * into a 32 bit id used to identify a syscall function. The 32 bit id is used in the
  * eBPF `call` instruction's imm field.
  */
+export function hashSymbolName(name: Uint8Array): number {
+    const hasher = MurMur3Hasher.default()
+    Hash.hashU8Slice({ data: name, state: hasher })
+    return MurMur3Hasher.finish32(hasher)
+}
