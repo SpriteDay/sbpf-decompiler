@@ -19,6 +19,8 @@ export interface Config {
     stackFrameSize: bigint
     /** Enable instruction tracing */
     enableRegisterTracing: boolean
+    /** Enable dynamic string allocation for labels */
+    enableSymbolAndSectionLabels: boolean
 }
 
 export const Config = {
@@ -27,6 +29,7 @@ export const Config = {
             maxCallDepth: 64,
             stackFrameSize: defaults.getStackFrameSize(),
             enableRegisterTracing: false,
+            enableSymbolAndSectionLabels: false,
         }
     },
 }
@@ -138,4 +141,10 @@ export const EbpfVm = {
 
 function runInterpreter(interpreter: Interpreter) {
     while (Interpreter.step(interpreter)) {}
+}
+
+/** Encrypted address to the `EbpfVM` object. */
+export interface EncryptedHostAddressToEbpfVm {
+    0: bigint
+    1: ContextObject
 }

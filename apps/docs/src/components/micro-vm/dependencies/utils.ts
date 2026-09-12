@@ -25,3 +25,13 @@ export function readU32LE(array: Uint8Array) {
 export function addU32(a: number, b: number) {
     return (a + b) >>> 0
 }
+
+export function toU32(value: number) {
+    return value >>> 0
+}
+
+export function usizeToLeBytes(value: bigint) {
+    const buf = new Uint8Array(8)
+    new DataView(buf.buffer).setBigUint64(0, value, true)
+    return buf
+}

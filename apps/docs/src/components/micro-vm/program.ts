@@ -1,5 +1,6 @@
-import { stringToU8Array } from "./utils"
-import { Config } from "./vm"
+import { stringToU8Array, toU32, usizeToLeBytes } from "./dependencies/utils"
+import { hashSymbolName } from "./ebpf"
+import { Config, EncryptedHostAddressToEbpfVm } from "./vm"
 
 /**
  * Defines a set of sbpfVersion of a program
@@ -112,7 +113,6 @@ export const FunctionRegistry = {
         if (!existingValue) {
             functionRegistry.map.set(key, [stringToU8Array(name), value])
         } else {
-            
         }
     },
 
@@ -121,7 +121,7 @@ export const FunctionRegistry = {
         functionRegistry: FunctionRegistry<T>,
         {
             loader,
-            hashSymbolName,
+            hashSymbolName: hashSymbolNameFlag,
             name,
             value,
         }: {
@@ -131,24 +131,57 @@ export const FunctionRegistry = {
             value: T
         },
     ): number {
-        const nameU8 = stringToU8Array(name)
         const config = loader.config
-        let key = Number(value)
-        if (hashSymbolName) {
-            const hash = name === "entrypoint" ? 
+        let key: number
+        if (hashSymbolNameFlag) {
+            const hash =
+                name === "entrypoint"
+                    ? hashSymbolName(stringToU8Array("entrypoint"))
+                    : hashSymbolName(usizeToLeBytes(BigInt(Number(value))))
+            if (BuiltinProgram.getFunctionRegistry(loader).map.get(hash)) {
+                throw new Error("SymbolHashCollision")
+            }
+            key = hash
+        } else {
+            key = toU32(Number(value))
         }
+        FunctionRegistry.registerFunction(functionRegistry, {
+            key,
+            name:
+                config.enableSymbolAndSectionLabels || name === "entrypoint"
+                    ? name
+                    : "",
+            value,
+        })
+        return key
     },
 }
+
+export type BuiltinFunction = (
+    vm: EncryptedHostAddressToEbpfVm,
+    a: bigint,
+    b: bigint,
+    c: bigint,
+    d: bigint,
+    e: bigint,
+) => void
 
 /** Represents the interface to a fixed functionality program */
 export interface BuiltinProgram {
     config: Config
+    sparseRegistry: FunctionRegistry<[BuiltinFunction, BuiltinFunction]>
 }
 
 export const BuiltinProgram = {
     new({ config }: { config: Config }): BuiltinProgram {
         return {
             config,
+            sparseRegistry: FunctionRegistry.default(),
         }
+    },
+
+    /** Get the function registry depending on the SBPF version */
+    getFunctionRegistry(loader: BuiltinProgram) {
+        return loader.sparseRegistry
     },
 }
