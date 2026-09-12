@@ -113,7 +113,7 @@ export const FunctionRegistry = {
         if (!entry) {
             functionRegistry.map.set(key, [stringToU8Array(name), value])
         } else {
-            if (entry[1]! == value) {
+            if (entry[1] !== value) {
                 throw new Error(`SymbolHashCollision: ${key}`)
             }
         }
