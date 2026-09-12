@@ -113,6 +113,7 @@ export const FunctionRegistry = {
         if (!existingValue) {
             functionRegistry.map.set(key, [stringToU8Array(name), value])
         } else {
+            throw new Error(`SymbolHashCollision: ${key}`)
         }
     },
 
@@ -137,7 +138,13 @@ export const FunctionRegistry = {
             const hash =
                 name === "entrypoint"
                     ? hashSymbolName(stringToU8Array("entrypoint"))
-                    : hashSymbolName(usizeToLeBytes(BigInt(Number(value))))
+                    : hashSymbolName(
+                          usizeToLeBytes(
+                              typeof value === "bigint"
+                                  ? value
+                                  : BigInt(Number(value)),
+                          ),
+                      )
             if (BuiltinProgram.getFunctionRegistry(loader).map.get(hash)) {
                 throw new Error("SymbolHashCollision")
             }

@@ -47,7 +47,7 @@ export const Hasher = {
 
     default(): Hasher {
         return {
-            buf: { bytes: new Uint8Array() },
+            buf: { bytes: new Uint8Array(4) },
             index: 0,
             processed: 0,
             state: { 0: 0 },
