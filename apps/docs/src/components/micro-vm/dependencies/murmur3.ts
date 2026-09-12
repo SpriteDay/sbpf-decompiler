@@ -1,4 +1,4 @@
-import { rotateLeftU32 } from "./std"
+import { addU32, readU32LE, rotateLeftU32 } from "./utils"
 
 /** 32-bit MurmurHash3 hasher */
 export interface Hasher {
@@ -96,11 +96,58 @@ export const Hasher = {
 
         return state
     },
+
+    write(hasher: Hasher, { bytes }: { bytes: Uint8Array }) {
+        const len = bytes.length
+        hasher.processed += len
+
+        let resultBody: Uint8Array
+        if (hasher.index === 0) {
+            resultBody = bytes
+        } else {
+            const index = hasher.index
+            if (len + index >= 4) {
+                // we can complete a block using the data left in the buffer
+                const mid = 4 - index
+                const head = bytes.slice(0, len)
+                const body = bytes.slice(mid, len - mid)
+
+                for (let i = 0; i < 4; i++) {
+                    hasher.buf.bytes![i] = head[i - index]
+                }
+
+                hasher.index = 0
+
+                State.processBlock(hasher.state, { block: hasher.buf.bytes })
+
+                resultBody = body
+            } else {
+                resultBody = bytes
+            }
+        }
+
+        for (let i = 0; i < resultBody.length; i += 4) {
+            const block = resultBody.subarray(i, i + 4)
+            if (block.length === 4) {
+                State.processBlock(hasher.state, { block })
+            } else {
+                Hasher.push(hasher, { buf: block })
+            }
+        }
+    },
 }
 
 const C1 = 0xcc9e2d51
 const C2 = 0x1b873593
 const R1 = 15
+
+export const State = {
+    processBlock(state: State, { block }: { block: Uint8Array | undefined }) {
+        state = preMix(readU32LE(block!))
+        state = rotateLeftU32({ value: state, amount: 13 })
+        state = addU32(Math.imul(5, state), 0xe6546b64)
+    },
+}
 
 function preMix(block: number): number {
     let resultBlock = Math.imul(block, C1)
