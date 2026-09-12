@@ -32,9 +32,9 @@ export interface Analysis {
     /** Plain list of instructions as they occur in the executable */
     instructions: Array<Insn>
     /** Functions in the executable */
-    functions: SortedMap<bigint, [number, string]>
+    functions: SortedMap<[number, string]>
     /** Nodes of the control-flow graph */
-    cfgNodes: SortedMap<number, CfgNode>
+    cfgNodes: SortedMap<CfgNode>
     /** CfgNode where the execution starts */
     entrypoint: number
     /** Virtual CfgNode that reaches all functions */
@@ -48,7 +48,10 @@ export const Analysis = {
         for (const [key, [functionName, pc]] of Executable.getFunctionRegistry(
             executable,
         ).map) {
-            functions.set(pc, [key, u8ArrayToString(functionName)])
+            SortedMap.set(functions, {
+                key: pc,
+                value: [key, u8ArrayToString(functionName)],
+            })
         }
     },
 }

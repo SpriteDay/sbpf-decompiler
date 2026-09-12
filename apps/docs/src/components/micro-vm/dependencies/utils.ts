@@ -40,14 +40,33 @@ export function usizeToLeBytes(value: bigint) {
     return buf
 }
 
+export const Ordering = {
+    Less: -1,
+    Equal: 0,
+    Greater: 1,
+} as const
+
+export type Ordering = (typeof Ordering)[keyof typeof Ordering]
+
 /** Replacement of Rust's BTreeMap */
-export interface SortedMap<K, V> {
-    map: Map<K, V>
+export interface SortedMap<V> {
+    map: Map<bigint, V>
 }
 
 export const SortedMap = {
-    new<K, V>(): SortedMap<K, V> {
-        return { map: new Map<K, V>() }
+    new<V>(): SortedMap<V> {
+        return { map: new Map<bigint, V>() }
+    },
+    sort<V>(sortedMap: SortedMap<V>) {
+        const entries = [...sortedMap.map].sort(([a], [b]) => Number(a - b))
+        sortedMap.map.clear()
+        for (const [key, value] of entries) {
+            sortedMap.map.set(key, value)
+        }
+    },
+    set<V>(sortedMap: SortedMap<V>, { key, value }: { key: bigint; value: V }) {
+        sortedMap.map.set(key, value)
+        SortedMap.sort(sortedMap)
     },
 }
 
