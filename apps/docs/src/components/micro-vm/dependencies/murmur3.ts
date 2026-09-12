@@ -96,7 +96,7 @@ export const Hasher = {
         state = Math.imul(state, 0xc2b2ae35)
         state ^= state >>> 16
 
-        return state
+        return toU32(state)
     },
 
     write(hasher: Hasher, { bytes }: { bytes: Uint8Array }) {
@@ -144,8 +144,8 @@ const C2 = 0x1b873593
 const R1 = 15
 
 export const State = {
-    processBlock(state: State, { block }: { block: Uint8Array | undefined }) {
-        state[0] = preMix(readU32LE(block!))
+    processBlock(state: State, { block }: { block: Uint8Array }) {
+        state[0] = toU32(state[0] ^ preMix(readU32LE(block)))
         state[0] = rotateLeftU32({ value: state[0], amount: 13 })
         state[0] = addU32(Math.imul(5, state[0]), 0xe6546b64)
     },
