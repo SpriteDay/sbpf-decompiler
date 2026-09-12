@@ -1,4 +1,4 @@
-import { addU32, readU32LE, rotateLeftU32 } from "./utils"
+import { addU32, readU32LE, rotateLeftU32, toU32 } from "./utils"
 
 /** 32-bit MurmurHash3 hasher */
 export interface Hasher {
@@ -13,7 +13,7 @@ interface State {
 }
 
 type Buffer = {
-    bytes: Uint8Array | undefined
+    bytes: Uint8Array
 }
 
 type Index = 0 | 1 | 2 | 3
@@ -40,14 +40,14 @@ export const Hasher = {
         const start = hasher.index
         const len = buf.length
         for (let i = 0; i < len; i++) {
-            hasher.buf.bytes![start + i] = buf[i]
+            hasher.buf.bytes[start + i] = buf[i]
         }
         hasher.index = Index.from({ x: start + len })
     },
 
     default(): Hasher {
         return {
-            buf: { bytes: undefined },
+            buf: { bytes: new Uint8Array() },
             index: 0,
             processed: 0,
             state: { 0: 0 },
@@ -60,22 +60,22 @@ export const Hasher = {
         switch (hasher.index) {
             case 3: {
                 let block = 0
-                block ^= hasher.buf.bytes![2] << 16
-                block ^= hasher.buf.bytes![1] << 8
-                block ^= hasher.buf.bytes![0]
+                block ^= hasher.buf.bytes[2] << 16
+                block ^= hasher.buf.bytes[1] << 8
+                block ^= hasher.buf.bytes[0]
                 state = hasher.state[0] ^ preMix(block)
                 break
             }
             case 2: {
                 let block = 0
-                block ^= hasher.buf.bytes![1] << 8
-                block ^= hasher.buf.bytes![0]
+                block ^= hasher.buf.bytes[1] << 8
+                block ^= hasher.buf.bytes[0]
                 state = hasher.state[0] ^ preMix(block)
                 break
             }
             case 1: {
                 let block = 0
-                block ^= hasher.buf.bytes![0]
+                block ^= hasher.buf.bytes[0]
                 state = hasher.state[0] ^ preMix(block)
                 break
             }
@@ -90,18 +90,18 @@ export const Hasher = {
 
         // finalization mix
         state ^= hasher.processed
-        state ^= state >> 16
+        state ^= state >>> 16
         state = Math.imul(state, 0x85ebca6b)
-        state ^= state >> 13
+        state ^= state >>> 13
         state = Math.imul(state, 0xc2b2ae35)
-        state ^= state >> 16
+        state ^= state >>> 16
 
         return state
     },
 
     write(hasher: Hasher, { bytes }: { bytes: Uint8Array }) {
         const len = bytes.length
-        hasher.processed += len
+        hasher.processed = toU32(hasher.processed + len)
 
         let resultBody: Uint8Array
         if (hasher.index === 0) {
@@ -111,11 +111,11 @@ export const Hasher = {
             if (len + index >= 4) {
                 // we can complete a block using the data left in the buffer
                 const mid = 4 - index
-                const head = bytes.slice(0, len)
-                const body = bytes.slice(mid, len - mid)
+                const head = bytes.slice(0, mid)
+                const body = bytes.slice(mid, len)
 
-                for (let i = 0; i < 4; i++) {
-                    hasher.buf.bytes![i] = head[i - index]
+                for (let i = 0; i < 4 - index; i++) {
+                    hasher.buf.bytes[index + i] = head[i]
                 }
 
                 hasher.index = 0
@@ -154,6 +154,6 @@ export const State = {
 function preMix(block: number): number {
     let resultBlock = Math.imul(block, C1)
     resultBlock = rotateLeftU32({ value: resultBlock, amount: R1 })
-    resultBlock = Math.imul(block, C2)
+    resultBlock = Math.imul(resultBlock, C2)
     return resultBlock
 }

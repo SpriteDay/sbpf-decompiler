@@ -16,7 +16,7 @@ export function rotateLeftU32({
     amount: number
 }): number {
     // Last ">>> 0" converts to unsigned before it gets returned as JS float value
-    return ((value << amount) | (value >>> amount)) >>> 0
+    return ((value << amount) | (value >>> (32 - amount))) >>> 0
 }
 
 /** Equivalent of Rust's LE::read_u32 over [u8] */
