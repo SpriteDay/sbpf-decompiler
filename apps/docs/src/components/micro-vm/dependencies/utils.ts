@@ -3,6 +3,10 @@ export function stringToU8Array(str: string): Uint8Array {
     return new TextEncoder().encode(str)
 }
 
+export function u8ArrayToString(str: Uint8Array): string {
+    return new TextDecoder().decode(str)
+}
+
 /** Equivalent of Rust's u32 .rotate_left() */
 export function rotateLeftU32({
     value,

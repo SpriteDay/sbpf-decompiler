@@ -1,3 +1,4 @@
+import { u8ArrayToString } from "./dependencies/utils"
 import { Insn } from "./ebpf"
 import { Executable } from "./elf"
 
@@ -43,6 +44,11 @@ export interface Analysis {
 export const Analysis = {
     /** Analyze an executable statically */
     fromExecutable({ executable }: { executable: Executable }): Analysis {
-        const functions = new Map<number, string>()
+        const functions = new Map<bigint, [number, string]>()
+        for (const [key, [functionName, pc]] of Executable.getFunctionRegistry(
+            executable,
+        ).map) {
+            functions.set(pc, [key, u8ArrayToString(functionName)])
+        }
     },
 }
