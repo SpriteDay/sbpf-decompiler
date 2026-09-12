@@ -124,3 +124,11 @@ export interface Insn {
     // Immideate value operand
     imm: bigint
 }
+
+/**
+ * Hash a symbol name
+ *
+ * This function is used by both the relocator and the VM to translate symbol names
+ * into a 32 bit id used to identify a syscall function. The 32 bit id is used in the
+ * eBPF `call` instruction's imm field.
+ */

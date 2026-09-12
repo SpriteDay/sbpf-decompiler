@@ -111,6 +111,31 @@ export const FunctionRegistry = {
         const existingValue = functionRegistry.map.get(key)
         if (!existingValue) {
             functionRegistry.map.set(key, [stringToU8Array(name), value])
+        } else {
+            
+        }
+    },
+
+    /** Used for transitioning from SBPFv0 to SBPFv3 */
+    registerFunctionHashedLegacy<T>(
+        functionRegistry: FunctionRegistry<T>,
+        {
+            loader,
+            hashSymbolName,
+            name,
+            value,
+        }: {
+            loader: BuiltinProgram
+            hashSymbolName: boolean
+            name: string
+            value: T
+        },
+    ): number {
+        const nameU8 = stringToU8Array(name)
+        const config = loader.config
+        let key = Number(value)
+        if (hashSymbolName) {
+            const hash = name === "entrypoint" ? 
         }
     },
 }
