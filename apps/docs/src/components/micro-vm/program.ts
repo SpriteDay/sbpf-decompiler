@@ -109,11 +109,13 @@ export const FunctionRegistry = {
         functionRegistry: FunctionRegistry<T>,
         { key, name, value }: { key: number; name: string; value: T },
     ) {
-        const existingValue = functionRegistry.map.get(key)
-        if (!existingValue) {
+        const entry = functionRegistry.map.get(key)
+        if (!entry) {
             functionRegistry.map.set(key, [stringToU8Array(name), value])
         } else {
-            throw new Error(`SymbolHashCollision: ${key}`)
+            if (entry[1]! == value) {
+                throw new Error(`SymbolHashCollision: ${key}`)
+            }
         }
     },
 
