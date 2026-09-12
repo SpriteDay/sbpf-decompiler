@@ -1,3 +1,5 @@
+import { rotateLeftU32 } from "./std"
+
 /** 32-bit MurmurHash3 hasher */
 export interface Hasher {
     buf: Buffer
@@ -32,7 +34,7 @@ export const Index = {
 }
 
 export const Hasher = {
-    push(hasher: Hasher, { buf }: { buf: Uint8Array }) {
+    push(hasher: Hasher, { buf }: { buf: Uint8Array }): void {
         const start = hasher.index
         const len = buf.length
         for (let i = 0; i < len; i++) {
@@ -40,4 +42,69 @@ export const Hasher = {
         }
         hasher.index = Index.from({ x: start + len })
     },
+
+    default(): Hasher {
+        return {
+            buf: { bytes: undefined },
+            index: 0,
+            processed: 0,
+            state: 0,
+        }
+    },
+
+    finish32(hasher: Hasher): number {
+        // tail
+        let state: number
+        switch (hasher.index) {
+            case 3: {
+                let block = 0
+                block ^= hasher.buf.bytes![2] << 16
+                block ^= hasher.buf.bytes![1] << 8
+                block ^= hasher.buf.bytes![0]
+                state = hasher.state ^ preMix(block)
+                break
+            }
+            case 2: {
+                let block = 0
+                block ^= hasher.buf.bytes![1] << 8
+                block ^= hasher.buf.bytes![0]
+                state = hasher.state ^ preMix(block)
+                break
+            }
+            case 1: {
+                let block = 0
+                block ^= hasher.buf.bytes![0]
+                state = hasher.state ^ preMix(block)
+                break
+            }
+            case 0: {
+                state = hasher.state
+                break
+            }
+            default: {
+                throw new Error("Unreachable")
+            }
+        }
+
+        // finalization mix
+        state ^= hasher.processed
+        state ^= state >> 16
+        state = Math.imul(state, 0x85ebca6b)
+        state ^= state >> 13
+        state = Math.imul(state, 0xc2b2ae35)
+        state ^= state >> 16
+
+        return state
+    },
+}
+
+const C1 = 0xcc9e2d51
+const C2 = 0x1b873593
+const R1 = 15
+
+function preMix(block: number): number {
+    let resultBlock = Math.imul(block, C1)
+    resultBlock = rotateLeftU32({ value: resultBlock, amount: R1 })
+    resultBlock = Math.imul(block, C2)
+    return resultBlock
 }
