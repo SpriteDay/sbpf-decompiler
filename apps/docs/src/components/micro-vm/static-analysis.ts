@@ -1,4 +1,4 @@
-import { u8ArrayToString } from "./dependencies/utils"
+import { SortedMap, u8ArrayToString } from "./dependencies/utils"
 import { Insn } from "./ebpf"
 import { Executable } from "./elf"
 
@@ -32,9 +32,9 @@ export interface Analysis {
     /** Plain list of instructions as they occur in the executable */
     instructions: Array<Insn>
     /** Functions in the executable */
-    functions: Map<number, [number, string]>
+    functions: SortedMap<bigint, [number, string]>
     /** Nodes of the control-flow graph */
-    cfgNodes: Map<number, CfgNode>
+    cfgNodes: SortedMap<number, CfgNode>
     /** CfgNode where the execution starts */
     entrypoint: number
     /** Virtual CfgNode that reaches all functions */
@@ -44,7 +44,7 @@ export interface Analysis {
 export const Analysis = {
     /** Analyze an executable statically */
     fromExecutable({ executable }: { executable: Executable }): Analysis {
-        const functions = new Map<bigint, [number, string]>()
+        const functions: Analysis["functions"] = SortedMap.new()
         for (const [key, [functionName, pc]] of Executable.getFunctionRegistry(
             executable,
         ).map) {

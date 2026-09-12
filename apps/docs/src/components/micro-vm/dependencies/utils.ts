@@ -39,3 +39,19 @@ export function usizeToLeBytes(value: bigint) {
     new DataView(buf.buffer).setBigUint64(0, value, true)
     return buf
 }
+
+/** Replacement of Rust's BTreeMap */
+export interface SortedMap<K, V> {
+    map: Map<K, V>
+}
+
+export const SortedMap = {
+    new<K, V>(): SortedMap<K, V> {
+        return { map: new Map<K, V>() }
+    },
+}
+
+/** Replacement of Rust's BTreeSet */
+export interface SortedSet<K, V> {
+    map: Map<K, V>
+}
