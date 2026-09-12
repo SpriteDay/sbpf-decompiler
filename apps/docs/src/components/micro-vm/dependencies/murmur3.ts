@@ -8,7 +8,9 @@ export interface Hasher {
     state: State
 }
 
-type State = number
+interface State {
+    0: number
+}
 
 type Buffer = {
     bytes: Uint8Array | undefined
@@ -48,7 +50,7 @@ export const Hasher = {
             buf: { bytes: undefined },
             index: 0,
             processed: 0,
-            state: 0,
+            state: { 0: 0 },
         }
     },
 
@@ -61,24 +63,24 @@ export const Hasher = {
                 block ^= hasher.buf.bytes![2] << 16
                 block ^= hasher.buf.bytes![1] << 8
                 block ^= hasher.buf.bytes![0]
-                state = hasher.state ^ preMix(block)
+                state = hasher.state[0] ^ preMix(block)
                 break
             }
             case 2: {
                 let block = 0
                 block ^= hasher.buf.bytes![1] << 8
                 block ^= hasher.buf.bytes![0]
-                state = hasher.state ^ preMix(block)
+                state = hasher.state[0] ^ preMix(block)
                 break
             }
             case 1: {
                 let block = 0
                 block ^= hasher.buf.bytes![0]
-                state = hasher.state ^ preMix(block)
+                state = hasher.state[0] ^ preMix(block)
                 break
             }
             case 0: {
-                state = hasher.state
+                state = hasher.state[0]
                 break
             }
             default: {
@@ -143,9 +145,9 @@ const R1 = 15
 
 export const State = {
     processBlock(state: State, { block }: { block: Uint8Array | undefined }) {
-        state = preMix(readU32LE(block!))
-        state = rotateLeftU32({ value: state, amount: 13 })
-        state = addU32(Math.imul(5, state), 0xe6546b64)
+        state[0] = preMix(readU32LE(block!))
+        state[0] = rotateLeftU32({ value: state[0], amount: 13 })
+        state[0] = addU32(Math.imul(5, state[0]), 0xe6546b64)
     },
 }
 
