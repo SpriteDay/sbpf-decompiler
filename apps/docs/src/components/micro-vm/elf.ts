@@ -6,3 +6,7 @@ export interface Executable {
     sbpfVersion: SBPFVersion
     instructions: Array<Insn>
 }
+
+export const Executable = {
+    getFunctionRegistry(executable: Executable) {},
+}

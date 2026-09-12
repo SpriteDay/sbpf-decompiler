@@ -39,3 +39,10 @@ export interface Analysis {
     /** Virtual CfgNode that reaches all functions */
     superRoot: number
 }
+
+export const Analysis = {
+    /** Analyze an executable statically */
+    fromExecutable({ executable }: { executable: Executable }): Analysis {
+        const functions = new Map<number, string>()
+    },
+}

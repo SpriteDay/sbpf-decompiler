@@ -1,3 +1,4 @@
+import { stringToU8Array } from "./utils"
 import { Config } from "./vm"
 
 /**
@@ -87,6 +88,30 @@ export const SBPFFeatures = {
     /** ... SIMD-0377 */
     callxUsesDstReg(sbpfVersion: SBPFVersion) {
         return SBPFVersion[sbpfVersion] >= 3
+    },
+}
+
+/** Holds the function symbols of an Executable */
+export interface FunctionRegistry<T> {
+    map: Map<number, [Uint8Array, T]>
+}
+
+export const FunctionRegistry = {
+    default<T>(): FunctionRegistry<T> {
+        return {
+            map: new Map<number, [Uint8Array, T]>(),
+        }
+    },
+
+    /** Register a symbol with an explicit key */
+    registerFunction<T>(
+        functionRegistry: FunctionRegistry<T>,
+        { key, name, value }: { key: number; name: string; value: T },
+    ) {
+        const existingValue = functionRegistry.map.get(key)
+        if (!existingValue) {
+            functionRegistry.map.set(key, [stringToU8Array(name), value])
+        }
     },
 }
 
