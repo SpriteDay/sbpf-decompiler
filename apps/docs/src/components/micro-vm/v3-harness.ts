@@ -8,7 +8,7 @@ import {
 } from "./ebpf"
 import { Executable } from "./elf"
 import { HostBuffer, MemoryMapping, MemoryRegion } from "./memory-mapping"
-import { BuiltinProgram } from "./program"
+import { BuiltinProgram, FunctionRegistry } from "./program"
 import { CallFrame, Config, ContextObject, EbpfVm } from "./vm"
 
 export function runV3InstructionsWithTracing({
@@ -21,6 +21,7 @@ export function runV3InstructionsWithTracing({
     const executable: Executable = {
         instructions,
         sbpfVersion: "V3",
+        functionRegistry: FunctionRegistry.default(),
     }
     const rodata = new Uint8Array()
     const config = Config.default()

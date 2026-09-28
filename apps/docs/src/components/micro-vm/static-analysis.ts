@@ -1,4 +1,4 @@
-import { SortedMap, u8ArrayToString } from "./dependencies/utils"
+import { SortedMap } from "./dependencies/utils"
 import { Insn } from "./ebpf"
 import { Executable } from "./elf"
 
@@ -43,15 +43,5 @@ export interface Analysis {
 
 export const Analysis = {
     /** Analyze an executable statically */
-    fromExecutable({ executable }: { executable: Executable }): Analysis {
-        const functions: Analysis["functions"] = SortedMap.new()
-        for (const [key, [functionName, pc]] of Executable.getFunctionRegistry(
-            executable,
-        ).map) {
-            SortedMap.set(functions, {
-                key: pc,
-                value: [key, u8ArrayToString(functionName)],
-            })
-        }
-    },
+    fromExecutable({ executable }: { executable: Executable }): Analysis {},
 }

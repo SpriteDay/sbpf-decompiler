@@ -10,6 +10,13 @@ export function formatInstruction(insn: Insn, style?: FomrattingStyle): string {
         "NASM": "uknown operation",
     }
     switch (opc) {
+        case OpCodes.LD_DW_IMM: {
+            formatted = {
+                "LLVM": `r${dst} = ${imm}`,
+                "NASM": `lddw ${dst}, ${imm}`,
+            }
+            break
+        }
         case OpCodes.LD_8B_REG: {
             formatted = {
                 "LLVM": `r${dst} = (r${src} + ${off}) as u64`,

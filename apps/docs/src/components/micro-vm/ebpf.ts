@@ -33,6 +33,8 @@ export const MM_HEAP_START = MM_REGION_SIZE * 3n
 export const MM_INPUT_START = MM_REGION_SIZE * 4n
 
 // Three least significant bits are operation class:
+/** BPF operation class: load from immideate */
+const BPF_LD = 0b0000_0_000n
 /** BPF operation class: 32 bit airthmetic or load. */
 const BPF_ALU32_LOAD = 0b0000_0_100n
 /** BPF operation class: 64 bit control flow. */
@@ -48,8 +50,14 @@ const BPF_ALU64_STORE = 0b0000_0_111n
 // (MSB)                      (LSB)
 
 // Size modifiers:
+/** BPF size modifier: double word (8 bytes). */
+const BPF_DW = 0b000_11_000n
 /** BPF size modifier: 8 bytes. */
 const BPF_8B = 0b100_10_000n
+
+// Mode modifiers:
+/** BPF mode modifier: immediate value. */
+const BPF_IMM = 0b000_00_000n
 
 // For arithmetic (BPF_ALU/BPF_ALU64_STORE) and jump (BPF_JUMP64) instructions:
 // +----------------+-------+------------+
@@ -88,6 +96,8 @@ const BPF_EXIT = 0b1001_0_000n
  * Linux kernel only combines above flags and does not attribute a name per operation.)
  */
 export const OpCodes = {
+    /** BPF opcode: `lddw dst, imm` | `dst = imm` */
+    LD_DW_IMM: BPF_LD | BPF_IMM | BPF_DW,
     /** BPF opcode: `ldxdw dst, [src+off]` | `dst = (src + off) as u64` */
     LD_8B_REG: BPF_ALU32_LOAD | BPF_X | BPF_8B,
 
