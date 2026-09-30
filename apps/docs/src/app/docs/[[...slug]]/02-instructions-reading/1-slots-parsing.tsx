@@ -2,15 +2,9 @@
 
 import { insnRaw } from "@/components/micro-vm/assembler"
 import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { uint8ArrToHex } from "@/lib/utils"
+import { formatInstruction } from "../components/utils"
 
 const Slots: Array<InsnRaw> = [
     { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 5n },
@@ -23,12 +17,6 @@ const Slots: Array<InsnRaw> = [
 export function SlotsParsing() {
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>
-                    Example of how slots get parsed into intructions
-                </CardTitle>
-                <CardDescription></CardDescription>
-            </CardHeader>
             <CardContent className="flex justify-center py-2">
                 <div className="flex flex-col gap-2 px-2">
                     {Slots.map(({ opc, dst, src, off, imm }, index) => (
@@ -41,8 +29,16 @@ export function SlotsParsing() {
                         </span>
                     ))}
                 </div>
+                <div className="flex flex-col gap-2 px-2">
+                    {Slots.map((slot, index) => (
+                        <span key={index} className="font-mono">
+                            <span className="opacity-70">
+                                {formatInstruction(slot)}
+                            </span>
+                        </span>
+                    ))}
+                </div>
             </CardContent>
-            <CardFooter className="flex-col items-start gap-4 text-sm"></CardFooter>
         </Card>
     )
 }

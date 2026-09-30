@@ -1,8 +1,11 @@
-import { Insn, OpCodes } from "@/components/micro-vm/ebpf"
+import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 
 export type FomrattingStyle = "NASM" | "LLVM"
 
-export function formatInstruction(insn: Insn, style?: FomrattingStyle): string {
+export function formatInstruction(
+    insn: InsnRaw,
+    style?: FomrattingStyle,
+): string {
     const styleWithFallback = style || "NASM"
     const { opc, dst, src, off, imm } = insn
     let formatted = {
