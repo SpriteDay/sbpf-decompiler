@@ -138,6 +138,8 @@ export interface Insn {
     imm: bigint
 }
 
+export type InsnRaw = Omit<Insn, "ptr">
+
 /**
  * Hash a symbol name
  *

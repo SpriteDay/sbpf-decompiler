@@ -8,3 +8,9 @@ export function cn(...inputs: ClassValue[]) {
 export function capitalize<T extends string>(str: T): Capitalize<T> {
     return (str[0].toUpperCase() + str.slice(1)) as Capitalize<T>
 }
+
+export function uint8ArrToHex(bytes: Uint8Array, separator = ""): string {
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(
+        separator,
+    )
+}
