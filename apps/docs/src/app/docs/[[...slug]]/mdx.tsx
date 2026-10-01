@@ -4,6 +4,7 @@ import { SimpleSbpfLoop } from "./01-control-flow-graph/1-simple-sbpf-loop"
 import { SlotsParsing } from "./02-instructions-reading/1-slots-parsing"
 import { LddwProgram } from "./02-instructions-reading/2-lddw-program"
 import { BitRepresentation } from "./03-bit-extension/1-bit-representation"
+import { BitExtension } from "./03-bit-extension/2-bit-extension"
 
 export function getMDXComponents(components?: MDXComponents) {
     return {
@@ -12,6 +13,7 @@ export function getMDXComponents(components?: MDXComponents) {
         SlotsParsing,
         LddwProgram,
         BitRepresentation,
+        BitExtension,
         ...components,
     } satisfies MDXComponents
 }
