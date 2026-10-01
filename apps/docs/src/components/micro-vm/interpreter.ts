@@ -1,4 +1,5 @@
 import {
+    augmentLddwUnchecked,
     FIRST_SCRATCH_REGISTER,
     FRAME_PTR_REG,
     getInsnUnchecked,
@@ -69,6 +70,22 @@ export const Interpreter = {
         }
 
         switch (insn.opc) {
+            case OpCodes.LD_DW_IMM: {
+                if (
+                    !SBPFFeatures.disableLddw(
+                        interpreter.executable.sbpfVersion,
+                    )
+                ) {
+                    augmentLddwUnchecked({
+                        prog: interpreter.executable.slots,
+                        insn,
+                    })
+                    interpreter.reg[dst] = BigInt.asUintN(64, insn.imm)
+                    interpreter.reg[11] += 1n
+                    break
+                }
+            }
+
             // BPF_ALU32_LOAD class
             case OpCodes.LD_8B_REG: {
                 if (
@@ -85,8 +102,8 @@ export const Interpreter = {
                         interpreter.vm.memoryMapping,
                         { vmAddr, size: 8 },
                     )
+                    break
                 }
-                break
             }
 
             // BPF_ALU64_STORE class

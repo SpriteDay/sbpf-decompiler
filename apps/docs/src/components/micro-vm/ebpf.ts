@@ -154,6 +154,22 @@ export function getInsnUnchecked({
     }
 }
 
+/** Merge the two halves of a LD_DW_IMM instruction */
+export function augmentLddwUnchecked({
+    prog,
+    insn,
+}: {
+    prog: Array<InsnRaw>
+    insn: Insn
+}) {
+    const moreSignificantHalf = prog[Number(insn.ptr) + 1].imm
+    insn.imm = BigInt.asIntN(
+        32,
+        (BigInt.asUintN(64, insn.imm) & 0xffff_ffffn) |
+            (BigInt.asUintN(64, moreSignificantHalf) << 32n),
+    )
+}
+
 /**
  * Hash a symbol name
  *
