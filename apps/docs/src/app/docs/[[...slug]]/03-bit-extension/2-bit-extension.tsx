@@ -48,7 +48,7 @@ export function BitExtension() {
                                 index={index}
                                 value={value}
                                 disabled={!active}
-                                className={cn(!active && "opacity-50")}
+                                className={cn(!active && "opacity-20")}
                                 onCheckedChange={(checked) => {
                                     if (index + 1 <= lsbBitsState.length) {
                                         setLsbBitsState((prev) => {

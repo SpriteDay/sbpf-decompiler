@@ -5,6 +5,7 @@ import { SlotsParsing } from "./02-instructions-reading/1-slots-parsing"
 import { LddwProgram } from "./02-instructions-reading/2-lddw-program"
 import { BitRepresentation } from "./03-bit-extension/1-bit-representation"
 import { BitExtension } from "./03-bit-extension/2-bit-extension"
+import { MaskOperations } from "./03-bit-extension/3-mask-operations"
 
 export function getMDXComponents(components?: MDXComponents) {
     return {
@@ -14,6 +15,7 @@ export function getMDXComponents(components?: MDXComponents) {
         LddwProgram,
         BitRepresentation,
         BitExtension,
+        MaskOperations,
         ...components,
     } satisfies MDXComponents
 }
