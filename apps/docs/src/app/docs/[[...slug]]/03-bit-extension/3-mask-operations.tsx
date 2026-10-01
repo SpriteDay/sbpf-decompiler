@@ -27,8 +27,8 @@ export function MaskOperations() {
     const [signed, setSigned] = useState<boolean>(false)
 
     const resultNumBitsState = useMemo(() => {
-        const firstNum = bitsArrayToNumber(firstNumBitsState, signed)
-        const secondNum = bitsArrayToNumber(secondNumBitsState, signed)
+        const firstNum = bitsArrayToNumber(firstNumBitsState, false)
+        const secondNum = bitsArrayToNumber(secondNumBitsState, false)
         let value: number
         switch (operation) {
             case "AND": {
@@ -46,7 +46,7 @@ export function MaskOperations() {
             .split("")
             .reverse()
             .map((val) => Number(val) === 1)
-    }, [firstNumBitsState, secondNumBitsState, operation, signed])
+    }, [firstNumBitsState, secondNumBitsState, operation])
 
     return (
         <Card>
@@ -78,7 +78,7 @@ export function MaskOperations() {
                             )
                         })}
                     </div>
-                    <span className="font-semibold tabular-nums">
+                    <span className="opacity-70 tabular-nums">
                         {numberToHex(
                             bitsArrayToNumber(firstNumBitsState, signed),
                             true,
@@ -114,14 +114,14 @@ export function MaskOperations() {
                             )
                         })}
                     </div>
-                    <span className="font-semibold tabular-nums">
+                    <span className="opacity-70 tabular-nums">
                         {numberToHex(
                             bitsArrayToNumber(secondNumBitsState, signed),
                             true,
                         )}
                     </span>
                 </div>
-                <Separator />
+                <Separator className="max-w-[70%]" />
                 <div className="flex flex-col gap-2 justify-center items-center">
                     <div className="flex justify-center flex-row-reverse items-center px-2 py-2">
                         {resultNumBitsState.map((value, index) => {
@@ -136,7 +136,7 @@ export function MaskOperations() {
                             )
                         })}
                     </div>
-                    <span className="font-semibold tabular-nums">
+                    <span className="opacity-70 tabular-nums">
                         {numberToHex(
                             bitsArrayToNumber(resultNumBitsState, signed),
                             true,
@@ -146,23 +146,18 @@ export function MaskOperations() {
             </CardContent>
             <CardFooter className="flex-col items-start gap-4 text-sm">
                 <div className="flex w-full flex-col items-center gap-4 ">
-                    <div className="flex flex-col gap-2 items-center">
-                        <span className="text-lg">Sign</span>
-                        <ToggleGroup
-                            variant="outline"
-                            value={[signed ? "true" : "false"]}
-                            onValueChange={(value) =>
-                                setSigned(value[0] === "true" ? true : false)
-                            }
-                        >
-                            <ToggleGroupItem value="false">
-                                Unsigned
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="true">
-                                Signed
-                            </ToggleGroupItem>
-                        </ToggleGroup>
-                    </div>
+                    <ToggleGroup
+                        variant="outline"
+                        value={[signed ? "true" : "false"]}
+                        onValueChange={(value) =>
+                            setSigned(value[0] === "true" ? true : false)
+                        }
+                    >
+                        <ToggleGroupItem value="false">
+                            Unsigned
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="true">Signed</ToggleGroupItem>
+                    </ToggleGroup>
                 </div>
             </CardFooter>
         </Card>
