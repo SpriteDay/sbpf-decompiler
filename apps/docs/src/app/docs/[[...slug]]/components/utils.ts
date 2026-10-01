@@ -16,49 +16,49 @@ export function formatInstruction(
         case OpCodes.LD_DW_IMM: {
             formatted = {
                 "LLVM": `r${dst} = ${imm}`,
-                "NASM": `lddw ${dst}, ${imm}`,
+                "NASM": `lddw r${dst}, ${imm}`,
             }
             break
         }
         case OpCodes.LD_8B_REG: {
             formatted = {
                 "LLVM": `r${dst} = (r${src} + ${off}) as u64`,
-                "NASM": `ldxdw ${dst}, [${src}+${off}]`,
+                "NASM": `ldxdw r${dst}, [r${src}+${off}]`,
             }
             break
         }
         case OpCodes.MOV64_IMM: {
             formatted = {
                 "LLVM": `r${dst} = ${imm}`,
-                "NASM": `mov64 ${dst}, ${imm}`,
+                "NASM": `mov64 r${dst}, ${imm}`,
             }
             break
         }
         case OpCodes.MOV64_REG: {
             formatted = {
                 "LLVM": `r${dst} = r${src}`,
-                "NASM": `mov64 ${dst}, ${src}`,
+                "NASM": `mov64 r${dst}, r${src}`,
             }
             break
         }
         case OpCodes.ADD64_IMM: {
             formatted = {
                 "LLVM": `r${dst} += ${imm}`,
-                "NASM": `add64 ${dst}, ${imm}`,
+                "NASM": `add64 r${dst}, ${imm}`,
             }
             break
         }
         case OpCodes.ADD64_REG: {
             formatted = {
                 "LLVM": `r${dst} += r${src}`,
-                "NASM": `add64 ${dst}, ${src}`,
+                "NASM": `add64 r${dst}, r${src}`,
             }
             break
         }
         case OpCodes.SUB64_IMM: {
             formatted = {
                 "LLVM": `r${dst} -= ${imm}`,
-                "NASM": `sub64, ${dst}, ${imm}`,
+                "NASM": `sub64, r${dst}, ${imm}`,
             }
             break
         }
@@ -69,14 +69,14 @@ export function formatInstruction(
         case OpCodes.JEQ64_IMM: {
             formatted = {
                 "LLVM": `PC += ${off} if r${dst} == ${imm}`,
-                "NASM": `jeq64 ${dst}, ${imm}, +${off}`,
+                "NASM": `jeq64 r${dst}, ${imm}, +${off}`,
             }
             break
         }
         case OpCodes.JGT64_IMM: {
             formatted = {
                 "LLVM": `PC += ${off} if r${dst} > ${imm}`,
-                "NASM": `jgt64 ${dst}, ${imm}, +${off}`,
+                "NASM": `jgt64 r${dst}, ${imm}, +${off}`,
             }
             break
         }
