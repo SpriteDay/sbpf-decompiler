@@ -3,6 +3,7 @@ import type { MDXComponents } from "mdx/types"
 import { SimpleSbpfLoop } from "./01-control-flow-graph/1-simple-sbpf-loop"
 import { SlotsParsing } from "./02-instructions-reading/1-slots-parsing"
 import { LddwProgram } from "./02-instructions-reading/2-lddw-program"
+import { BitRepresentation } from "./03-bit-extension/1-bit-representation"
 
 export function getMDXComponents(components?: MDXComponents) {
     return {
@@ -10,6 +11,7 @@ export function getMDXComponents(components?: MDXComponents) {
         SimpleSbpfLoop,
         SlotsParsing,
         LddwProgram,
+        BitRepresentation,
         ...components,
     } satisfies MDXComponents
 }
