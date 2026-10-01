@@ -126,8 +126,7 @@ export const EbpfVm = {
             executable,
             callFrames,
         }: { executable: Executable; callFrames: Array<CallFrame> },
-    ): number {
-        const program_result = 0
+    ): bigint {
         const interpreter = Interpreter.new({
             vm,
             executable,
@@ -135,7 +134,7 @@ export const EbpfVm = {
             registers: vm.registers,
         })
         runInterpreter(interpreter)
-        return program_result
+        return vm.programResult
     },
 }
 
