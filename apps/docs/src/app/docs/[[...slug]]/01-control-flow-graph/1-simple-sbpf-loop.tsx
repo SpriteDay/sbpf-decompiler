@@ -1,6 +1,6 @@
 "use client"
 
-import { Insn, OpCodes } from "@/components/micro-vm/ebpf"
+import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 import {
     Card,
     CardContent,
@@ -16,26 +16,24 @@ import { WideSlider } from "@/components/custom/wide-slider"
 import { Button } from "@/components/ui/button"
 import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 
-const Program: Array<Insn> = [
-    { ptr: 0x00n, opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.MOV64_IMM, dst: 2n, src: 0n, off: 0n, imm: 3n },
-    // biome-ignore format: Keeping all of the instructions in one line
-    { ptr: 0x00n, opc: OpCodes.JEQ64_IMM, dst: 2n, src: 0n, off: 6n, imm: 0n },
-    // biome-ignore format: Keeping all of the instructions in one line
-    { ptr: 0x00n, opc: OpCodes.JGT64_IMM, dst: 2n, src: 0n, off: 2n, imm: 10n },
-    { ptr: 0x00n, opc: OpCodes.ADD64_REG, dst: 1n, src: 2n, off: 0n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.JA, dst: 0n, src: 0n, off: 1n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.ADD64_IMM, dst: 1n, src: 0n, off: 0n, imm: 10n },
-    { ptr: 0x00n, opc: OpCodes.SUB64_IMM, dst: 2n, src: 0n, off: 0n, imm: 1n },
-    { ptr: 0x00n, opc: OpCodes.JA, dst: 0n, src: 0n, off: -7n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.MOV64_REG, dst: 0n, src: 1n, off: 0n, imm: 0n },
-    { ptr: 0x00n, opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0n },
+const Slots: Array<InsnRaw> = [
+    { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0n },
+    { opc: OpCodes.MOV64_IMM, dst: 2n, src: 0n, off: 0n, imm: 3n },
+    { opc: OpCodes.JEQ64_IMM, dst: 2n, src: 0n, off: 6n, imm: 0n },
+    { opc: OpCodes.JGT64_IMM, dst: 2n, src: 0n, off: 2n, imm: 10n },
+    { opc: OpCodes.ADD64_REG, dst: 1n, src: 2n, off: 0n, imm: 0n },
+    { opc: OpCodes.JA, dst: 0n, src: 0n, off: 1n, imm: 0n },
+    { opc: OpCodes.ADD64_IMM, dst: 1n, src: 0n, off: 0n, imm: 10n },
+    { opc: OpCodes.SUB64_IMM, dst: 2n, src: 0n, off: 0n, imm: 1n },
+    { opc: OpCodes.JA, dst: 0n, src: 0n, off: -7n, imm: 0n },
+    { opc: OpCodes.MOV64_REG, dst: 0n, src: 1n, off: 0n, imm: 0n },
+    { opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0n },
 ]
 
 export function SimpleSbpfLoop() {
     const [currentStep, setCurrentStep] = useState(0)
     const { registerTrace } = useMemo(() => {
-        return runV3InstructionsWithTracing({ instructions: Program })
+        return runV3InstructionsWithTracing({ slots: Slots })
     }, [])
     const updateCurrentStep = useCallback(
         (newValue: number) => {
@@ -56,7 +54,7 @@ export function SimpleSbpfLoop() {
             </CardHeader>
             <CardContent className="flex justify-center py-2">
                 <ExecutionInspector
-                    instructions={Program}
+                    slots={Slots}
                     registerTrace={registerTrace}
                     currentStep={currentStep}
                 />

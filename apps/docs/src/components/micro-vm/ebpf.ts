@@ -140,6 +140,20 @@ export interface Insn {
 
 export type InsnRaw = Omit<Insn, "ptr">
 
+/** Same as `getInsn` except unchecked */
+export function getInsnUnchecked({
+    slot,
+    pc,
+}: {
+    slot: InsnRaw
+    pc: bigint
+}): Insn {
+    return {
+        ptr: pc,
+        ...slot,
+    }
+}
+
 /**
  * Hash a symbol name
  *

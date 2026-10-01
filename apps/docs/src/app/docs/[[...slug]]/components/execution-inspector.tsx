@@ -1,5 +1,5 @@
 "use client"
-import { Insn } from "@/components/micro-vm/ebpf"
+import { InsnRaw } from "@/components/micro-vm/ebpf"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -11,11 +11,11 @@ import { FomrattingStyle, formatInstruction } from "./utils"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ExecutionInspector({
-    instructions,
+    slots,
     currentStep,
     registerTrace,
 }: {
-    instructions: Array<Insn>
+    slots: Array<InsnRaw>
     currentStep: number
     registerTrace: Array<BigUint64Array>
 }) {
@@ -65,7 +65,7 @@ export function ExecutionInspector({
             </div>
             <ResizablePanel defaultSize="50%">
                 <div className="flex justify-center p-2 flex-col gap-1 ">
-                    {instructions.map((instruction, index) => {
+                    {slots.map((slot, index) => {
                         return (
                             <span
                                 key={index}
@@ -77,8 +77,7 @@ export function ExecutionInspector({
                                         "bg-amber-950/10 dark:bg-amber-200/20",
                                 )}
                             >
-                                {index}:{" "}
-                                {formatInstruction(instruction, formatStyle)}
+                                {index}: {formatInstruction(slot, formatStyle)}
                             </span>
                         )
                     })}

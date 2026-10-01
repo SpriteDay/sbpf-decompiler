@@ -3,7 +3,7 @@
 import { insnRaw } from "@/components/micro-vm/assembler"
 import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 import { Card, CardContent } from "@/components/ui/card"
-import { uint8ArrToHex } from "@/lib/utils"
+import { byteArrayToHex } from "@/lib/utils"
 import { formatInstruction } from "../components/utils"
 
 const Slots: Array<InsnRaw> = [
@@ -22,7 +22,7 @@ export function SlotsParsing() {
                     {Slots.map(({ opc, dst, src, off, imm }, index) => (
                         <span key={index} className="font-mono">
                             <span className="opacity-50">{index + 1}:</span>{" "}
-                            {uint8ArrToHex(
+                            {byteArrayToHex(
                                 insnRaw(opc, dst, src, off, imm),
                                 " ",
                             )}

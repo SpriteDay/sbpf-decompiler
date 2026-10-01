@@ -1,4 +1,9 @@
-import { FIRST_SCRATCH_REGISTER, FRAME_PTR_REG, OpCodes } from "./ebpf"
+import {
+    FIRST_SCRATCH_REGISTER,
+    FRAME_PTR_REG,
+    getInsnUnchecked,
+    OpCodes,
+} from "./ebpf"
 import { Executable } from "./elf"
 import { ExecutionOverrun } from "./error"
 import { MemoryMapping } from "./memory-mapping"
@@ -44,12 +49,16 @@ export const Interpreter = {
     step(interpreter: Interpreter): boolean {
         const config = interpreter.vm.loader.config
 
-        if (interpreter.reg[11] >= interpreter.executable.instructions.length) {
+        if (interpreter.reg[11] >= interpreter.executable.slots.length) {
             throw new ExecutionOverrun()
         }
         let nextPc = interpreter.reg[11] + 1n
-        const insn =
-            interpreter.executable.instructions[Number(interpreter.reg[11])]
+
+        const insn = getInsnUnchecked({
+            slot: interpreter.executable.slots[Number(interpreter.reg[11])],
+            pc: interpreter.reg[11],
+        })
+
         const dst = Number(insn.dst)
         const src = Number(insn.src)
 

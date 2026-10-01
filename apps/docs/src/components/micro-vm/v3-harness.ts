@@ -1,5 +1,5 @@
 import {
-    Insn,
+    InsnRaw,
     MM_HEAP_START,
     MM_INPUT_START,
     MM_RODATA_START,
@@ -12,14 +12,14 @@ import { BuiltinProgram, FunctionRegistry } from "./program"
 import { CallFrame, Config, ContextObject, EbpfVm } from "./vm"
 
 export function runV3InstructionsWithTracing({
-    instructions,
+    slots,
 }: {
-    instructions: Array<Insn>
+    slots: Array<InsnRaw>
 }) {
     const mem = new Uint8Array()
 
     const executable: Executable = {
-        instructions,
+        slots,
         sbpfVersion: "V3",
         functionRegistry: FunctionRegistry.default(),
     }

@@ -1,10 +1,10 @@
-import { Insn } from "./ebpf"
+import { InsnRaw } from "./ebpf"
 import { FunctionRegistry, SBPFVersion } from "./program"
 
 export interface Executable {
     /** Required SBPF capabilities */
     sbpfVersion: SBPFVersion
-    instructions: Array<Insn>
+    slots: Array<InsnRaw>
     /** Call resolution map (hash, pc, name) */
     functionRegistry: FunctionRegistry<bigint>
 }
