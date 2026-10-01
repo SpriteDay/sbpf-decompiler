@@ -1,6 +1,7 @@
 import { SortedMap } from "./dependencies/utils"
-import { Insn } from "./ebpf"
+import { augmentLddwUnchecked, getInsnUnchecked, Insn, OpCodes } from "./ebpf"
 import { Executable } from "./elf"
+import { SBPFFeatures } from "./program"
 
 /** A node of the control-flow graph */
 export interface CfgNode {
@@ -43,5 +44,29 @@ export interface Analysis {
 
 export const Analysis = {
     /** Analyze an executable statically */
-    fromExecutable({ executable }: { executable: Executable }): Analysis {},
+    fromExecutable({ executable }: { executable: Executable }): Analysis {
+        const slots = executable.slots
+        const sbpfVersion = executable.sbpfVersion
+
+        const instructions: Array<Insn> = []
+        let insnPtr = 0n
+        while (insnPtr < slots.length) {
+            const insn = getInsnUnchecked({
+                slot: slots[Number(insnPtr)],
+                pc: insnPtr,
+            })
+            if (
+                !SBPFFeatures.disableLddw(sbpfVersion) &&
+                insn.opc === OpCodes.LD_DW_IMM
+            ) {
+                insnPtr += 1n
+                if (insnPtr >= slots.length) {
+                    break
+                }
+                augmentLddwUnchecked({ prog: slots, insn })
+            }
+            instructions.push(insn)
+            insnPtr += 1n
+        }
+    },
 }
