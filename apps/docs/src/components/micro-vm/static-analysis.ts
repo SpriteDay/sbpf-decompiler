@@ -68,5 +68,7 @@ export const Analysis = {
             instructions.push(insn)
             insnPtr += 1n
         }
+        console.log({ slots })
+        console.log({ instructions })
     },
 }
