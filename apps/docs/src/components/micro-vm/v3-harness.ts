@@ -73,5 +73,5 @@ export function runV3InstructionsWithTracing({
         return defaultCallFrame
     })
     const programResult = EbpfVm.executeProgram(vm, { executable, callFrames })
-    return { programResult, registerTrace: vm.registerTrace }
+    return { programResult, registerTrace: vm.registerTrace, executable }
 }
