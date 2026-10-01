@@ -6,10 +6,12 @@ export function formatInstruction({
     prog,
     pc,
     style,
+    augmentLddw = false,
 }: {
     prog: Array<InsnRaw>
     pc: bigint
     style?: FomrattingStyle
+    augmentLddw?: boolean
 }): string {
     const styleWithFallback = style || "NASM"
     const { opc, dst, src, off, imm } = prog[Number(pc)]
@@ -21,16 +23,28 @@ export function formatInstruction({
         case OpCodes.LD_DW_IMM: {
             const slot = prog[Number(pc)]
             const moreSignificantHalf = prog[Number(pc) + 1].imm
-            const augmentedImm = BigInt.asIntN(
-                64,
-                (BigInt.asUintN(64, slot.imm) & 0xffff_ffffn) |
-                    (BigInt.asUintN(64, moreSignificantHalf) << 32n),
-            )
+            let resultImm = imm
+            if (augmentLddw) {
+                resultImm = BigInt.asIntN(
+                    64,
+                    (BigInt.asUintN(64, slot.imm) & 0xffff_ffffn) |
+                        (BigInt.asUintN(64, moreSignificantHalf) << 32n),
+                )
+            }
             formatted = {
-                "LLVM": `r${dst} = 0x${augmentedImm.toString(16)}`,
-                "NASM": `lddw r${dst}, 0x${augmentedImm.toString(16)}`,
+                "LLVM": `r${dst} = 0x${resultImm.toString(16)}`,
+                "NASM": `lddw r${dst}, 0x${resultImm.toString(16)}`,
             }
             break
+        }
+        case 0x00n: {
+            if (!augmentLddw) {
+                formatted = {
+                    "LLVM": `0x00 0x${imm.toString(16)}`,
+                    "NASM": `0x00 0x${imm.toString(16)}`,
+                }
+                break
+            }
         }
         case OpCodes.LD_8B_REG: {
             formatted = {
