@@ -83,8 +83,8 @@ export const Interpreter = {
                     interpreter.reg[dst] = BigInt.asUintN(64, insn.imm)
                     interpreter.reg[11] += 1n
                     nextPc += 1n
-                    break
                 }
+                break
             }
 
             // BPF_ALU32_LOAD class
@@ -103,8 +103,8 @@ export const Interpreter = {
                         interpreter.vm.memoryMapping,
                         { vmAddr, size: 8 },
                     )
-                    break
                 }
+                break
             }
 
             // BPF_ALU64_STORE class
