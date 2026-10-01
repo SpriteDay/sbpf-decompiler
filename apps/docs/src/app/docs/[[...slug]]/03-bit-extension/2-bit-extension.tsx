@@ -27,8 +27,8 @@ export function BitExtension() {
         <Card>
             <CardHeader>
                 <CardTitle>
-                    Example of interpretation of the same value as signed and
-                    unsigned integer
+                    Example of how values change on extension depending on
+                    representation
                 </CardTitle>
                 <CardDescription>
                     Use the knobs to turn on and off bits
