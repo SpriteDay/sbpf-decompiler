@@ -164,7 +164,7 @@ export function augmentLddwUnchecked({
 }) {
     const moreSignificantHalf = prog[Number(insn.ptr) + 1].imm
     insn.imm = BigInt.asIntN(
-        32,
+        64,
         (BigInt.asUintN(64, insn.imm) & 0xffff_ffffn) |
             (BigInt.asUintN(64, moreSignificantHalf) << 32n),
     )
