@@ -29,13 +29,19 @@ export function BitRepresentation() {
                 <div className="flex justify-center items-center gap-2 px-2 py-2">
                     {bitsState.map((value, index) => {
                         return (
-                            <div key={index}>
+                            <div
+                                className="flex flex-col gap-2 items-center justify-center"
+                                key={index}
+                            >
+                                <span className="text-lg">{Number(value)}</span>
                                 <Switch
+                                    className="rotate-270"
                                     checked={value}
                                     onCheckedChange={(checked) =>
                                         setBitsState((prev) => {
-                                            prev[index] = checked
-                                            return prev
+                                            const newState = [...prev]
+                                            newState[index] = checked
+                                            return newState
                                         })
                                     }
                                 />
