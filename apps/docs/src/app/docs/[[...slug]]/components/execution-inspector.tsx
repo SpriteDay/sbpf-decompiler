@@ -65,7 +65,7 @@ export function ExecutionInspector({
             </div>
             <ResizablePanel defaultSize="50%">
                 <div className="flex justify-center p-2 flex-col gap-1 ">
-                    {slots.map((slot, index) => {
+                    {slots.map((_, index) => {
                         return (
                             <span
                                 key={index}
@@ -77,7 +77,12 @@ export function ExecutionInspector({
                                         "bg-amber-950/10 dark:bg-amber-200/20",
                                 )}
                             >
-                                {index}: {formatInstruction(slot, formatStyle)}
+                                {index}:{" "}
+                                {formatInstruction({
+                                    prog: slots,
+                                    pc: BigInt(index),
+                                    style: formatStyle,
+                                })}
                             </span>
                         )
                     })}

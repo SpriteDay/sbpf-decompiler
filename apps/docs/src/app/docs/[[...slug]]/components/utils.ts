@@ -2,21 +2,33 @@ import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 
 export type FomrattingStyle = "NASM" | "LLVM"
 
-export function formatInstruction(
-    insn: InsnRaw,
-    style?: FomrattingStyle,
-): string {
+export function formatInstruction({
+    prog,
+    pc,
+    style,
+}: {
+    prog: Array<InsnRaw>
+    pc: bigint
+    style?: FomrattingStyle
+}): string {
     const styleWithFallback = style || "NASM"
-    const { opc, dst, src, off, imm } = insn
+    const { opc, dst, src, off, imm } = prog[Number(pc)]
     let formatted = {
         "LLVM": "uknown operation",
         "NASM": "uknown operation",
     }
     switch (opc) {
         case OpCodes.LD_DW_IMM: {
+            const slot = prog[Number(pc)]
+            const moreSignificantHalf = prog[Number(pc) + 1].imm
+            const augmentedImm = BigInt.asIntN(
+                64,
+                (BigInt.asUintN(64, slot.imm) & 0xffff_ffffn) |
+                    (BigInt.asUintN(64, moreSignificantHalf) << 32n),
+            )
             formatted = {
-                "LLVM": `r${dst} = ${imm}`,
-                "NASM": `lddw r${dst}, ${imm}`,
+                "LLVM": `r${dst} = 0x${augmentedImm.toString(16)}`,
+                "NASM": `lddw r${dst}, 0x${augmentedImm.toString(16)}`,
             }
             break
         }
@@ -85,7 +97,7 @@ export function formatInstruction(
             break
         }
         default:
-            return "Unknown opcode"
+            return "<Unknown opcode>"
     }
     return formatted[styleWithFallback]
 }

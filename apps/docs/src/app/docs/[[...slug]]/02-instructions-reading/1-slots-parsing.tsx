@@ -30,10 +30,13 @@ export function SlotsParsing() {
                     ))}
                 </div>
                 <div className="flex flex-col gap-2 px-2">
-                    {Slots.map((slot, index) => (
+                    {Slots.map((_, index) => (
                         <span key={index} className="font-mono">
                             <span className="opacity-70">
-                                {formatInstruction(slot)}
+                                {formatInstruction({
+                                    prog: Slots,
+                                    pc: BigInt(index),
+                                })}
                             </span>
                         </span>
                     ))}
