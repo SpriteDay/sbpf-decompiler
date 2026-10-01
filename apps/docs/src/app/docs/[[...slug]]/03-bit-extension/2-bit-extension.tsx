@@ -9,10 +9,11 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { bitsArrayToNumber, numberToHex } from "./utils"
+import { BitKnob } from "./components/bit-knob"
 
 export function BitExtension() {
     const [lsbBitsState, setLsbBitsState] = useState<Array<boolean>>(
@@ -42,38 +43,30 @@ export function BitExtension() {
                             lsb ||
                             (extended && index + 1 >= lsbBitsState.length)
                         return (
-                            <div
-                                className={cn(
-                                    "flex flex-col gap-2 items-center justify-center",
-                                    (index + 1) % 4 === 0 && "ml-6",
-                                    !active && "opacity-50",
-                                )}
+                            <BitKnob
                                 key={index}
-                            >
-                                <span className="text-lg">{Number(value)}</span>
-                                <Switch
-                                    className="rotate-270"
-                                    disabled={!active}
-                                    checked={value}
-                                    onCheckedChange={(checked) => {
-                                        if (index + 1 <= lsbBitsState.length) {
-                                            setLsbBitsState((prev) => {
-                                                const newState = [...prev]
-                                                newState[index] = checked
-                                                return newState
-                                            })
-                                        } else {
-                                            setMsbBitsState((prev) => {
-                                                const newState = [...prev]
-                                                newState[
-                                                    index - lsbBitsState.length
-                                                ] = checked
-                                                return newState
-                                            })
-                                        }
-                                    }}
-                                />
-                            </div>
+                                index={index}
+                                value={value}
+                                disabled={!active}
+                                className={cn(!active && "opacity-50")}
+                                onCheckedChange={(checked) => {
+                                    if (index + 1 <= lsbBitsState.length) {
+                                        setLsbBitsState((prev) => {
+                                            const newState = [...prev]
+                                            newState[index] = checked
+                                            return newState
+                                        })
+                                    } else {
+                                        setMsbBitsState((prev) => {
+                                            const newState = [...prev]
+                                            newState[
+                                                index - lsbBitsState.length
+                                            ] = checked
+                                            return newState
+                                        })
+                                    }
+                                }}
+                            />
                         )
                     })}
                 </div>
@@ -139,28 +132,4 @@ export function BitExtension() {
             </CardFooter>
         </Card>
     )
-}
-
-function bitsArrayToNumber(bits: Array<boolean>, signed: boolean): number {
-    return bits.reduce((acc, bit, index) => {
-        if (!bit) {
-            return acc
-        }
-        let positionValue: number
-        if (signed && index === bits.length - 1) {
-            positionValue = Math.pow(2, index) * -1
-        } else {
-            positionValue = Math.pow(2, index)
-        }
-        return acc + positionValue
-    }, 0)
-}
-
-function numberToHex(num: number, extended: boolean): string {
-    const negative = num < 0
-    const abs = Math.abs(num)
-    return `${negative ? "-" : ""}0x${abs
-        .toString(16)
-        .padStart(extended ? 4 : 2, "0")
-        .toUpperCase()}`
 }

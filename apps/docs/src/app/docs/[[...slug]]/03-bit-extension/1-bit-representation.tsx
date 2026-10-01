@@ -9,10 +9,10 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { cn } from "@/lib/utils"
 import { useState } from "react"
+import { BitKnob } from "./components/bit-knob"
+import { bitsArrayToNumber, numberToHex } from "./utils"
 
 export function BitRepresentation() {
     const [bitsState, setBitsState] = useState<Array<boolean>>(
@@ -34,26 +34,18 @@ export function BitRepresentation() {
                 <div className="flex justify-center flex-row-reverse items-center  px-2 py-2">
                     {bitsState.map((value, index) => {
                         return (
-                            <div
-                                className={cn(
-                                    "flex flex-col gap-2 items-center justify-center",
-                                    (index + 1) % 4 === 0 && "ml-6",
-                                )}
+                            <BitKnob
                                 key={index}
-                            >
-                                <span className="text-lg">{Number(value)}</span>
-                                <Switch
-                                    className="rotate-270"
-                                    checked={value}
-                                    onCheckedChange={(checked) =>
-                                        setBitsState((prev) => {
-                                            const newState = [...prev]
-                                            newState[index] = checked
-                                            return newState
-                                        })
-                                    }
-                                />
-                            </div>
+                                value={value}
+                                index={index}
+                                onCheckedChange={(checked) =>
+                                    setBitsState((prev) => {
+                                        const newState = [...prev]
+                                        newState[index] = checked
+                                        return newState
+                                    })
+                                }
+                            />
                         )
                     })}
                 </div>
@@ -65,6 +57,7 @@ export function BitRepresentation() {
                         <span className="font-semibold tabular-nums">
                             {numberToHex(
                                 bitsArrayToNumber(bitsState, mode === "signed"),
+                                false,
                             )}
                         </span>
                     </Label>
@@ -84,25 +77,4 @@ export function BitRepresentation() {
             </CardFooter>
         </Card>
     )
-}
-
-function bitsArrayToNumber(bits: Array<boolean>, signed: boolean): number {
-    return bits.reduce((acc, bit, index) => {
-        if (!bit) {
-            return acc
-        }
-        let positionValue: number
-        if (signed && index === bits.length - 1) {
-            positionValue = Math.pow(2, index) * -1
-        } else {
-            positionValue = Math.pow(2, index)
-        }
-        return acc + positionValue
-    }, 0)
-}
-
-function numberToHex(num: number): string {
-    const negative = num < 0
-    const abs = Math.abs(num)
-    return `${negative ? "-" : ""}0x${abs.toString(16).padStart(2, "0").toUpperCase()}`
 }
