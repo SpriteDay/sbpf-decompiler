@@ -55,12 +55,8 @@ export function ExecutionInspector({
                         setFormatStyle(value[0] as FomrattingStyle)
                     }
                 >
-                    <ToggleGroupItem value="NASM" aria-label="Toggle all">
-                        NASM
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="LLVM" aria-label="Toggle missed">
-                        LLVM
-                    </ToggleGroupItem>
+                    <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
+                    <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
                 </ToggleGroup>
             </div>
             <ResizablePanel defaultSize="50%">

@@ -75,15 +75,10 @@ export function BitRepresentation() {
                             setMode(value[0] as "signed" | "unsigned")
                         }
                     >
-                        <ToggleGroupItem value="signed" aria-label="Toggle all">
-                            Signed
-                        </ToggleGroupItem>
-                        <ToggleGroupItem
-                            value="unsigned"
-                            aria-label="Toggle missed"
-                        >
+                        <ToggleGroupItem value="unsigned">
                             Unsigned
                         </ToggleGroupItem>
+                        <ToggleGroupItem value="signed">Signed</ToggleGroupItem>
                     </ToggleGroup>
                 </div>
             </CardFooter>
@@ -109,5 +104,5 @@ function bitsArrayToNumber(bits: Array<boolean>, signed: boolean): number {
 function numberToHex(num: number): string {
     const negative = num < 0
     const abs = Math.abs(num)
-    return `${negative ? "-" : ""}0x${abs.toString(16).padStart(2, "0")}`
+    return `${negative ? "-" : ""}0x${abs.toString(16).padStart(2, "0").toUpperCase()}`
 }
