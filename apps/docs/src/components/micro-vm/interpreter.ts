@@ -82,6 +82,7 @@ export const Interpreter = {
                     })
                     interpreter.reg[dst] = BigInt.asUintN(64, insn.imm)
                     interpreter.reg[11] += 1n
+                    nextPc += 1n
                     break
                 }
             }
