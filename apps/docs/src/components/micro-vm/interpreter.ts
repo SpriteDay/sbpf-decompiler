@@ -200,6 +200,7 @@ export const Interpreter = {
 
             case OpCodes.CALL_IMM: {
                 let resolved = false
+
                 // External syscall
                 if (SBPFFeatures.staticSyscalls(self.executable.sbpfVersion)) {
                     if (insn.src === 0n) {
@@ -218,8 +219,60 @@ export const Interpreter = {
                             resolved = true
                         }
                     } else {
+                        const targetPc = BigInt.asIntN(64, nextPc + insn.imm)
+                        if (
+                            targetPc < self.executable.slots.length &&
+                            insn.src === 1n
+                        ) {
+                            if (!Interpreter.pushFrame(self, { config })) {
+                                return false
+                            }
+                            nextPc = BigInt.asUintN(64, targetPc)
+                            resolved = true
+                        }
                     }
                 } else {
+                    // Try external callback
+                    const callback = BuiltinProgram.getFunctionRegistry(
+                        self.executable.loader,
+                    ).map.inner.get(BigInt.asUintN(32, insn.imm))?.[1]?.[0]
+                    if (callback) {
+                        try {
+                            Interpreter.dispatchSyscall(self, {
+                                function_: callback,
+                            })
+                        } catch (e) {
+                            logger.error(e)
+                            return false
+                        }
+                        resolved = true
+                    }
+                    // Try internal function
+                    const entry =
+                        self.executable.functionRegistry.map.inner.get(insn.imm)
+                    if (entry) {
+                        const [_, targetPc] = entry
+                        if (!Interpreter.pushFrame(self, { config })) {
+                            return false
+                        }
+                        if (
+                            targetPc < self.executable.slots.length &&
+                            insn.src === 1n
+                        ) {
+                            if (!Interpreter.pushFrame(self, { config })) {
+                                return false
+                            }
+                            nextPc = BigInt.asUintN(64, targetPc)
+                            resolved = true
+                        }
+                        resolved = true
+                    }
+                    if (!resolved) {
+                        self.vm.registers[11] = self.reg[11]
+                        self.vm.programResult = -1n
+                        logger.error("Unsupported instruction")
+                        return false
+                    }
                 }
                 break
             }
