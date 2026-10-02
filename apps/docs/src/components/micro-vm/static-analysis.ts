@@ -173,6 +173,19 @@ export const Analysis = {
                     }
                     break
                 }
+                case OpCodes.EXIT: {
+                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
+                        SortedMap.insert(self.cfgNodes, {
+                            key: insn.ptr + 1n,
+                            value: CfgNode.default(),
+                        })
+                    }
+                    SortedMap.insert(cfgEdges, {
+                        key: insn.ptr,
+                        value: [insn.opc, []],
+                    })
+                    break
+                }
             }
         }
     },
