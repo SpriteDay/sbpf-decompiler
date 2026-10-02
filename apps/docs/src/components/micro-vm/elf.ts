@@ -1,5 +1,5 @@
 import { InsnRaw } from "./ebpf"
-import { FunctionRegistry, SBPFVersion } from "./program"
+import { BuiltinProgram, FunctionRegistry, SBPFVersion } from "./program"
 
 export interface Executable {
     /** Required SBPF capabilities */
@@ -7,10 +7,12 @@ export interface Executable {
     slots: Array<InsnRaw>
     /** Call resolution map (hash, pc, name) */
     functionRegistry: FunctionRegistry<bigint>
+    /** Loader built-in program */
+    loader: BuiltinProgram
 }
 
 export const Executable = {
-    getFunctionRegistry(executable: Executable) {
-        return executable.functionRegistry
+    getFunctionRegistry(self: Executable) {
+        return self.functionRegistry
     },
 }

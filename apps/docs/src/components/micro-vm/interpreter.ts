@@ -10,7 +10,7 @@ import {
 import { Executable } from "./elf"
 import { ExecutionOverrun } from "./error"
 import { MemoryMapping } from "./memory-mapping"
-import { SBPFFeatures } from "./program"
+import { BuiltinFunction, BuiltinProgram, SBPFFeatures } from "./program"
 import { CallFrame, Config, EbpfVm } from "./vm"
 
 /** State of interpreter */
@@ -198,6 +198,32 @@ export const Interpreter = {
                 break
             }
 
+            case OpCodes.CALL_IMM: {
+                let resolved = false
+                // External syscall
+                if (SBPFFeatures.staticSyscalls(self.executable.sbpfVersion)) {
+                    if (insn.src === 0n) {
+                        const callback = BuiltinProgram.getFunctionRegistry(
+                            self.executable.loader,
+                        ).map.inner.get(BigInt.asUintN(32, insn.imm))?.[1]?.[0]
+                        if (callback) {
+                            try {
+                                Interpreter.dispatchSyscall(self, {
+                                    function_: callback,
+                                })
+                            } catch (e) {
+                                logger.error(e)
+                                return false
+                            }
+                            resolved = true
+                        }
+                    } else {
+                    }
+                } else {
+                }
+                break
+            }
+
             case OpCodes.EXIT: {
                 if (self.vm.callDepth === 0) {
                     self.vm.programResult = self.reg[0]
@@ -218,5 +244,17 @@ export const Interpreter = {
 
         self.reg[11] = nextPc
         return true
+    },
+
+    dispatchSyscall(
+        self: Interpreter,
+        { function_ }: { function_: BuiltinFunction },
+    ) {
+        self.vm.dueInsnCount =
+            self.vm.previousInstructionMeter - self.vm.dueInsnCount
+        self.vm.registers.set(self.reg.subarray(0, 6), 0)
+        EbpfVm.invokeFunction(self.vm, { function_ })
+        self.vm.dueInsnCount = 0n
+        return self.vm.programResult
     },
 }

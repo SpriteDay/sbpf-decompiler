@@ -5,7 +5,7 @@ import {
     usizeToLeBytes,
 } from "./dependencies/utils"
 import { hashSymbolName } from "./ebpf"
-import { Config, EncryptedHostAddressToEbpfVm } from "./vm"
+import { Config, EbpfVm, EncryptedHostAddressToEbpfVm } from "./vm"
 
 /**
  * Defines a set of sbpfVersion of a program
@@ -176,7 +176,7 @@ export const FunctionRegistry = {
 }
 
 export type BuiltinFunction = (
-    vm: EncryptedHostAddressToEbpfVm,
+    vm: EbpfVm,
     a: bigint,
     b: bigint,
     c: bigint,
@@ -187,7 +187,7 @@ export type BuiltinFunction = (
 /** Represents the interface to a fixed functionality program */
 export interface BuiltinProgram {
     config: Config
-    sparseRegistry: FunctionRegistry<[BuiltinFunction, BuiltinFunction]>
+    sparseRegistry: FunctionRegistry<[BuiltinFunction]>
 }
 
 export const BuiltinProgram = {
@@ -199,7 +199,7 @@ export const BuiltinProgram = {
     },
 
     /** Get the function registry depending on the SBPF version */
-    getFunctionRegistry(loader: BuiltinProgram) {
-        return loader.sparseRegistry
+    getFunctionRegistry(self: BuiltinProgram) {
+        return self.sparseRegistry
     },
 }

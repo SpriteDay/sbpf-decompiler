@@ -2,7 +2,7 @@ import { FRAME_PTR_REG, MM_STACK_START } from "./ebpf"
 import { Executable } from "./elf"
 import { Interpreter } from "./interpreter"
 import { MemoryMapping } from "./memory-mapping"
-import { BuiltinProgram } from "./program"
+import { BuiltinFunction, BuiltinProgram } from "./program"
 
 export const defaults = {
     DEFAULT_STACK_FRAME_SIZE: 4_096n,
@@ -84,6 +84,10 @@ export interface EbpfVm {
      * config.maxCallDepth and to know when to terminate execution.
      */
     callDepth: number
+    /** Last return value of instructionMeter.getRemaining() */
+    previousInstructionMeter: bigint
+    /** Outstanding value to instructionMeter.consume() */
+    dueInsnCount: bigint
     /** Registers inlined */
     registers: BigUint64Array
     /** Program result inlined */
@@ -112,6 +116,8 @@ export const EbpfVm = {
         )
         return {
             callDepth: 0,
+            previousInstructionMeter: 0n,
+            dueInsnCount: 0n,
             registers,
             programResult: 0n,
             memoryMapping: contextObject.activeMapping,
@@ -124,20 +130,35 @@ export const EbpfVm = {
      * Execute the program
      */
     executeProgram(
-        vm: EbpfVm,
+        self: EbpfVm,
         {
             executable,
             callFrames,
         }: { executable: Executable; callFrames: Array<CallFrame> },
     ): bigint {
         const interpreter = Interpreter.new({
-            vm,
+            vm: self,
             executable,
             callFrames,
-            registers: vm.registers,
+            registers: self.registers,
         })
         runInterpreter(interpreter)
-        return vm.programResult
+        return self.programResult
+    },
+
+    /** Invokes a built-in function */
+    invokeFunction(
+        self: EbpfVm,
+        { function_ }: { function_: BuiltinFunction },
+    ) {
+        function_(
+            self,
+            self.registers[0],
+            self.registers[1],
+            self.registers[2],
+            self.registers[3],
+            self.registers[4],
+        )
     },
 }
 

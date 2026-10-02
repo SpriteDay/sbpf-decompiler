@@ -18,15 +18,17 @@ export function runV3InstructionsWithTracing({
 }) {
     const mem = new Uint8Array()
 
-    const executable: Executable = {
-        slots,
-        sbpfVersion: "V3",
-        functionRegistry: FunctionRegistry.default(),
-    }
     const rodata = new Uint8Array()
     const config = Config.default()
     config.enableRegisterTracing = true
     const loader = BuiltinProgram.new({ config })
+
+    const executable: Executable = {
+        slots,
+        sbpfVersion: "V3",
+        functionRegistry: FunctionRegistry.default(),
+        loader,
+    }
     const sbpfVersion = executable.sbpfVersion
 
     const stack = new Uint8Array(
