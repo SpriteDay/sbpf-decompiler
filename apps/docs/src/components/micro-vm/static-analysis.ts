@@ -111,13 +111,52 @@ export const Analysis = {
                 })
             }
         }
-        const cfgEdges = SortedMap.new()
+        const cfgEdges = SortedMap.new<Array<bigint>>()
         for (const insn of self.instructions) {
             const targetPc = BigInt.asUintN(
                 64,
                 BigInt.asIntN(64, insn.ptr) + BigInt.asIntN(64, insn.off),
             )
             switch (insn.opc) {
+                case OpCodes.CALL_IMM: {
+                    const key = SBPFFeatures.calculateCallImmTargetPc(
+                        sbpfVersion,
+                        { pc: insn.ptr, imm: insn.imm },
+                    )
+                    const entry =
+                        self.executable.functionRegistry.map.inner.get(key)
+                    let targetPc: bigint | undefined = undefined
+                    if (entry) {
+                        targetPc = entry[1]
+                    }
+                    if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
+                        targetPc = key
+                    }
+                    if (typeof targetPc !== "undefined") {
+                        if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
+                            SortedMap.insert(self.cfgNodes, {
+                                key: insn.ptr + 1n,
+                                value: CfgNode.default(),
+                            })
+                        }
+                        if (!self.cfgNodes.inner.get(targetPc)) {
+                            SortedMap.insert(self.cfgNodes, {
+                                key: targetPc,
+                                value: CfgNode.default(),
+                            })
+                        }
+                        const destinations = flattenCallGraph
+                            ? [insn.ptr + 1n, targetPc]
+                            : [insn.ptr + 1n]
+
+                        SortedMap.insert(cfgEdges, {
+                            key: insn.ptr,
+                            value: [insn.opc, destinations],
+                        })
+                    }
+
+                    break
+                }
             }
         }
     },

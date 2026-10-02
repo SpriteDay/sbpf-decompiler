@@ -95,6 +95,21 @@ export const SBPFFeatures = {
     callxUsesDstReg(sbpfVersion: SBPFVersion) {
         return SBPFVersion[sbpfVersion] >= 3
     },
+
+    /**
+     * Calculate the target program counter for a CALL_IMM instruction depending on
+     * the SBPF version
+     */
+    calculateCallImmTargetPc(
+        sbpfVersion: SBPFVersion,
+        { pc, imm }: { pc: bigint; imm: bigint },
+    ) {
+        if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
+            return BigInt.asUintN(32, BigInt.asIntN(64, pc) + imm + 1n)
+        } else {
+            return BigInt.asUintN(32, imm)
+        }
+    },
 }
 
 /** Holds the function symbols of an Executable */
