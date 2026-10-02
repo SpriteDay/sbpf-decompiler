@@ -186,6 +186,45 @@ export const Analysis = {
                     })
                     break
                 }
+                case OpCodes.JA: {
+                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
+                        SortedMap.insert(self.cfgNodes, {
+                            key: insn.ptr + 1n,
+                            value: CfgNode.default(),
+                        })
+                    }
+                    if (!self.cfgNodes.inner.get(targetPc)) {
+                        SortedMap.insert(self.cfgNodes, {
+                            key: targetPc,
+                            value: CfgNode.default(),
+                        })
+                    }
+                    SortedMap.insert(cfgEdges, {
+                        key: insn.ptr,
+                        value: [targetPc],
+                    })
+                    break
+                }
+                case OpCodes.JEQ64_IMM:
+                case OpCodes.JGT64_IMM: {
+                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
+                        SortedMap.insert(self.cfgNodes, {
+                            key: insn.ptr + 1n,
+                            value: CfgNode.default(),
+                        })
+                    }
+                    if (!self.cfgNodes.inner.get(targetPc)) {
+                        SortedMap.insert(self.cfgNodes, {
+                            key: targetPc,
+                            value: CfgNode.default(),
+                        })
+                    }
+                    SortedMap.insert(cfgEdges, {
+                        key: insn.ptr,
+                        value: [insn.ptr + 1n, targetPc],
+                    })
+                    break
+                }
             }
         }
     },
