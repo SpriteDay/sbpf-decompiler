@@ -17,6 +17,8 @@ export interface Config {
     maxCallDepth: number
     /** Size of a stack frame in bytes, must match the size specified in the LLVM BPF backend */
     stackFrameSize: bigint
+    /** Enables gaps in VM address space between the stack frames */
+    enableStackFrameGaps: boolean
     /** Enable instruction tracing */
     enableRegisterTracing: boolean
     /** Enable dynamic string allocation for labels */
@@ -28,6 +30,7 @@ export const Config = {
         return {
             maxCallDepth: 64,
             stackFrameSize: defaults.getStackFrameSize(),
+            enableStackFrameGaps: false,
             enableRegisterTracing: false,
             enableSymbolAndSectionLabels: false,
         }

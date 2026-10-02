@@ -82,6 +82,10 @@ export const Analysis = {
             cfgNodes: SortedMap.new(),
             superRoot: insnPtr,
         }
+        Analysis.splitIntoBasicBlocks(result, {
+            flattenCallGraph: false,
+            sbpfVersion,
+        })
         return result
     },
 
@@ -101,10 +105,20 @@ export const Analysis = {
         for (const pc of self.functions.inner.keys()) {
             const entry = self.cfgNodes.inner.get(pc)
             if (!entry) {
-                self.cfgNodes.inner.set(pc, CfgNode.default())
+                SortedMap.insert(self.cfgNodes, {
+                    key: pc,
+                    value: CfgNode.default(),
+                })
             }
         }
         const cfgEdges = SortedMap.new()
-        self.instructions
+        for (const insn of self.instructions) {
+            const targetPc = BigInt.asUintN(
+                64,
+                BigInt.asIntN(64, insn.ptr) + BigInt.asIntN(64, insn.off),
+            )
+            switch (insn.opc) {
+            }
+        }
     },
 }

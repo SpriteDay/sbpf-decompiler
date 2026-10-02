@@ -111,12 +111,12 @@ export const FunctionRegistry = {
 
     /** Register a symbol with an explicit key */
     registerFunction<T>(
-        functionRegistry: FunctionRegistry<T>,
+        self: FunctionRegistry<T>,
         { key, name, value }: { key: bigint; name: string; value: T },
     ) {
-        const entry = functionRegistry.map.inner.get(key)
+        const entry = self.map.inner.get(key)
         if (!entry) {
-            functionRegistry.map.inner.set(key, [stringToU8Array(name), value])
+            self.map.inner.set(key, [stringToU8Array(name), value])
         } else {
             if (entry[1] !== value) {
                 throw new Error(`SymbolHashCollision: ${key}`)
@@ -126,7 +126,7 @@ export const FunctionRegistry = {
 
     /** Used for transitioning from SBPFv0 to SBPFv3 */
     registerFunctionHashedLegacy<T>(
-        functionRegistry: FunctionRegistry<T>,
+        self: FunctionRegistry<T>,
         {
             loader,
             hashSymbolName: hashSymbolNameFlag,
@@ -163,7 +163,7 @@ export const FunctionRegistry = {
         } else {
             key = toU32(Number(value))
         }
-        FunctionRegistry.registerFunction(functionRegistry, {
+        FunctionRegistry.registerFunction(self, {
             key: BigInt(key),
             name:
                 config.enableSymbolAndSectionLabels || name === "entrypoint"

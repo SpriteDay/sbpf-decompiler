@@ -87,6 +87,8 @@ const BPF_JA = 0b0000_0_000n
 const BPF_JEQ = 0b0001_0_000n
 /** BPF JMP operation code: jump if greater. */
 const BPF_JGT = 0b0010_0_000n
+/** BPF JMP operation code: syscall or internal function call */
+const BPF_CALL = 0b1000_0_000n
 /** BPF JMP operation code: return from program. */
 const BPF_EXIT = 0b1001_0_000n
 
@@ -119,6 +121,10 @@ export const OpCodes = {
     JEQ64_IMM: BPF_JMP64 | BPF_K | BPF_JEQ,
     /** BPF opcode: `jgt64 dst, imm, +off` | `PC += off if dst > imm` */
     JGT64_IMM: BPF_JMP64 | BPF_K | BPF_JGT,
+    /** BPF opcode: `call imm` | syscall or function call to syscall with key `imm` */
+    CALL_IMM: BPF_JMP64 | BPF_CALL,
+    /** BPF opcode: `call reg */
+    CALL_REG: BPF_JMP64 | BPF_X | BPF_CALL,
     /** BPF opcode: `exit` | `return r0` */
     EXIT: BPF_JMP64 | BPF_EXIT,
 }
