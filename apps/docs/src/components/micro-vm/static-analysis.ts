@@ -103,8 +103,7 @@ export const Analysis = {
     ) {
         self.cfgNodes.inner.set(0n, CfgNode.default())
         for (const pc of self.functions.inner.keys()) {
-            const entry = self.cfgNodes.inner.get(pc)
-            if (!entry) {
+            if (!self.cfgNodes.inner.get(pc)) {
                 SortedMap.insert(self.cfgNodes, {
                     key: pc,
                     value: CfgNode.default(),
@@ -155,6 +154,23 @@ export const Analysis = {
                         })
                     }
 
+                    break
+                }
+                case OpCodes.CALL_REG: {
+                    // Abnormal CFG edge
+                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
+                        SortedMap.insert(self.cfgNodes, {
+                            key: insn.ptr + 1n,
+                            value: CfgNode.default(),
+                        })
+                        const destinations = flattenCallGraph
+                            ? [insn.ptr + 1n, self.superRoot]
+                            : [insn.ptr + 1n]
+                        SortedMap.insert(cfgEdges, {
+                            key: insn.ptr,
+                            value: [insn.opc, destinations],
+                        })
+                    }
                     break
                 }
             }
