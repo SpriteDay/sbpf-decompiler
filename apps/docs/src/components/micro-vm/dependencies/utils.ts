@@ -50,23 +50,24 @@ export type Ordering = (typeof Ordering)[keyof typeof Ordering]
 
 /** Replacement of Rust's BTreeMap */
 export interface SortedMap<V> {
-    map: Map<bigint, V>
+    inner: Map<bigint, V>
 }
 
 export const SortedMap = {
     new<V>(): SortedMap<V> {
-        return { map: new Map<bigint, V>() }
+        return { inner: new Map<bigint, V>() }
     },
-    sort<V>(sortedMap: SortedMap<V>) {
-        const entries = [...sortedMap.map].sort(([a], [b]) => Number(a - b))
-        sortedMap.map.clear()
+    sort<V>(self: SortedMap<V>) {
+        const entries = [...self.inner].sort(([a], [b]) => Number(a - b))
+        self.inner.clear()
         for (const [key, value] of entries) {
-            sortedMap.map.set(key, value)
+            self.inner.set(key, value)
         }
+        return self.inner
     },
-    set<V>(sortedMap: SortedMap<V>, { key, value }: { key: bigint; value: V }) {
-        sortedMap.map.set(key, value)
-        SortedMap.sort(sortedMap)
+    insert<V>(self: SortedMap<V>, { key, value }: { key: bigint; value: V }) {
+        self.inner.set(key, value)
+        SortedMap.sort(self)
     },
 }
 

@@ -1,4 +1,9 @@
-import { stringToU8Array, toU32, usizeToLeBytes } from "./dependencies/utils"
+import {
+    SortedMap,
+    stringToU8Array,
+    toU32,
+    usizeToLeBytes,
+} from "./dependencies/utils"
 import { hashSymbolName } from "./ebpf"
 import { Config, EncryptedHostAddressToEbpfVm } from "./vm"
 
@@ -94,24 +99,24 @@ export const SBPFFeatures = {
 
 /** Holds the function symbols of an Executable */
 export interface FunctionRegistry<T> {
-    map: Map<number, [Uint8Array, T]>
+    map: SortedMap<[Uint8Array, T]>
 }
 
 export const FunctionRegistry = {
     default<T>(): FunctionRegistry<T> {
         return {
-            map: new Map<number, [Uint8Array, T]>(),
+            map: SortedMap.new<[Uint8Array, T]>(),
         }
     },
 
     /** Register a symbol with an explicit key */
     registerFunction<T>(
         functionRegistry: FunctionRegistry<T>,
-        { key, name, value }: { key: number; name: string; value: T },
+        { key, name, value }: { key: bigint; name: string; value: T },
     ) {
-        const entry = functionRegistry.map.get(key)
+        const entry = functionRegistry.map.inner.get(key)
         if (!entry) {
-            functionRegistry.map.set(key, [stringToU8Array(name), value])
+            functionRegistry.map.inner.set(key, [stringToU8Array(name), value])
         } else {
             if (entry[1] !== value) {
                 throw new Error(`SymbolHashCollision: ${key}`)
@@ -147,7 +152,11 @@ export const FunctionRegistry = {
                                   : BigInt(Number(value)),
                           ),
                       )
-            if (BuiltinProgram.getFunctionRegistry(loader).map.get(hash)) {
+            if (
+                BuiltinProgram.getFunctionRegistry(loader).map.inner.get(
+                    BigInt(hash),
+                )
+            ) {
                 throw new Error("SymbolHashCollision")
             }
             key = hash
@@ -155,7 +164,7 @@ export const FunctionRegistry = {
             key = toU32(Number(value))
         }
         FunctionRegistry.registerFunction(functionRegistry, {
-            key,
+            key: BigInt(key),
             name:
                 config.enableSymbolAndSectionLabels || name === "entrypoint"
                     ? name
