@@ -43,8 +43,10 @@ export function formatInstruction({
                     "LLVM": `0x00 0x${imm.toString(16)}`,
                     "NASM": `0x00 0x${imm.toString(16)}`,
                 }
-                break
+            } else {
+                return "<Unknown opcode>"
             }
+            break
         }
         case OpCodes.LD_8B_REG: {
             formatted = {
@@ -103,6 +105,20 @@ export function formatInstruction({
             formatted = {
                 "LLVM": `PC += ${off} if r${dst} > ${imm}`,
                 "NASM": `jgt64 r${dst}, ${imm}, +${off}`,
+            }
+            break
+        }
+        case OpCodes.CALL_IMM: {
+            formatted = {
+                "LLVM": `call 0x${imm.toString(16).padStart(32, "0")}`,
+                "NASM": `call 0x${imm.toString(16).padStart(32, "0")}`,
+            }
+            break
+        }
+        case OpCodes.CALL_REG: {
+            formatted = {
+                "LLVM": `call r${dst}`,
+                "NASM": `call r${dst}`,
             }
             break
         }
