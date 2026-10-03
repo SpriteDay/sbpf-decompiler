@@ -101,7 +101,10 @@ export const Analysis = {
             sbpfVersion,
         }: { flattenCallGraph?: boolean; sbpfVersion: SBPFVersion },
     ) {
+        // Starting CFG node at PC: 0
         SortedMap.insert(self.cfgNodes, { key: 0n, value: CfgNode.default() })
+        // Loop through the functions to create CFG node for each of them - labeled functions
+        // are considered basic block leaders
         for (const pc of self.functions.inner.keys()) {
             if (!self.cfgNodes.inner.get(pc)) {
                 SortedMap.insert(self.cfgNodes, {
@@ -110,6 +113,7 @@ export const Analysis = {
                 })
             }
         }
+        // Edges = "ends" of the basic blocks, we store PC and array of potential destinations
         const cfgEdges = SortedMap.new<{ 0: bigint; 1: Array<bigint> }>()
         for (const insn of self.instructions) {
             const targetPc = BigInt.asUintN(
@@ -132,6 +136,7 @@ export const Analysis = {
                             insn.src === 0n
                         )
                     ) {
+                        // In case function was found in registry and it's not V3+ syscall
                         targetPc = entry[1]
                     }
                     if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
@@ -142,18 +147,22 @@ export const Analysis = {
                         }
                     }
                     if (typeof targetPc !== "undefined") {
+                        // Mark start of a basic block at the fall-through PC
                         if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
                             SortedMap.insert(self.cfgNodes, {
                                 key: insn.ptr + 1n,
                                 value: CfgNode.default(),
                             })
                         }
+                        // Mark start of a basic block at the callee PC
                         if (!self.cfgNodes.inner.get(targetPc)) {
                             SortedMap.insert(self.cfgNodes, {
                                 key: targetPc,
                                 value: CfgNode.default(),
                             })
                         }
+                        // Flatten call graph flag means we make one big CFG for the whole program,
+                        // disabled flag means we make CFG per each function
                         const destinations = flattenCallGraph
                             ? [insn.ptr + 1n, targetPc]
                             : [insn.ptr + 1n]
@@ -174,6 +183,9 @@ export const Analysis = {
                             value: CfgNode.default(),
                         })
                     }
+                    // Because callee of CALL_REG is undefined at static analysis time,
+                    // we mark potential callee to be anywhere in the program for
+                    // flatten call graph case, that's why we insert here a super root
                     const destinations = flattenCallGraph
                         ? [insn.ptr + 1n, self.superRoot]
                         : [insn.ptr + 1n]
@@ -190,6 +202,7 @@ export const Analysis = {
                             value: CfgNode.default(),
                         })
                     }
+                    // No destinations for EXIT opcode
                     SortedMap.insert(cfgEdges, {
                         key: insn.ptr,
                         value: [insn.opc, []],
@@ -258,5 +271,31 @@ export const Analysis = {
                 return self.cfgNodes.inner.has(functionStart)
             }),
         )
+
+        //
+        let instructionIndex = 0
+        self.cfgNodes.inner
+            .entries()
+            .forEach(([cfgNodeStart, cfgNode], index) => {
+                const cfgNodeEnd =
+                    index + 1 < Array.from(self.cfgNodes.inner).length
+                        ? // Next basic block start - 1, if there is a next block
+                          Array.from(self.cfgNodes.inner.entries())[
+                              index + 1
+                          ][0] - 1n
+                        : // Or just the last instruction in the program
+                          self.instructions[self.instructions.length - 1].ptr
+                // Writing down down the start of the CFG node
+                cfgNode.instructions[0] = instructionIndex
+                while (instructionIndex < self.instructions.length) {
+                    if (self.instructions[instructionIndex].ptr <= cfgNodeEnd) {
+                        instructionIndex += 1
+                        // Update the end instruction index in our CFG node
+                        cfgNode.instructions[1] = instructionIndex
+                    } else {
+                        break
+                    }
+                }
+            })
     },
 }
