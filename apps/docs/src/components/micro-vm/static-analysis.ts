@@ -237,5 +237,28 @@ export const Analysis = {
                 }
             }
         }
+
+        // Filtering cfg nodes, cfg edges and functions
+        self.cfgNodes.inner = new Map(
+            self.cfgNodes.inner.entries().filter(([cfgNodeStart, _cfgNode]) => {
+                self.instructions.find((insn) => {
+                    return insn.ptr === cfgNodeStart
+                })
+            }),
+        )
+
+        for (const cfgEdge of cfgEdges.inner) {
+            cfgEdge[1].forEach((destination, index) => {
+                if (!self.cfgNodes.inner.has(destination)) {
+                    delete cfgEdge[1][index]
+                }
+            })
+        }
+
+        self.functions.inner = new Map(
+            self.functions.inner.entries().filter(([functionStart, _]) => {
+                return self.cfgNodes.inner.has(functionStart)
+            }),
+        )
     },
 }
