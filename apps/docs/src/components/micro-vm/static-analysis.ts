@@ -163,14 +163,14 @@ export const Analysis = {
                             key: insn.ptr + 1n,
                             value: CfgNode.default(),
                         })
-                        const destinations = flattenCallGraph
-                            ? [insn.ptr + 1n, self.superRoot]
-                            : [insn.ptr + 1n]
-                        SortedMap.insert(cfgEdges, {
-                            key: insn.ptr,
-                            value: [insn.opc, destinations],
-                        })
                     }
+                    const destinations = flattenCallGraph
+                        ? [insn.ptr + 1n, self.superRoot]
+                        : [insn.ptr + 1n]
+                    SortedMap.insert(cfgEdges, {
+                        key: insn.ptr,
+                        value: [insn.opc, destinations],
+                    })
                     break
                 }
                 case OpCodes.EXIT: {
