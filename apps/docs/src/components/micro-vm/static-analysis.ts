@@ -221,7 +221,7 @@ export const Analysis = {
                     }
                     SortedMap.insert(cfgEdges, {
                         key: insn.ptr,
-                        value: [insn.ptr + 1n, targetPc],
+                        value: [insn.opc, [insn.ptr + 1n, targetPc]],
                     })
                     break
                 }
