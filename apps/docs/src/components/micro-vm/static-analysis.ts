@@ -125,11 +125,21 @@ export const Analysis = {
                     const entry =
                         self.executable.functionRegistry.map.inner.get(key)
                     let targetPc: bigint | undefined = undefined
-                    if (entry) {
+                    if (
+                        entry &&
+                        !(
+                            SBPFFeatures.staticSyscalls(sbpfVersion) &&
+                            insn.src === 0n
+                        )
+                    ) {
                         targetPc = entry[1]
                     }
                     if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
-                        targetPc = key
+                        // According to SIMD-0178 src === 1 is for internal calls, and src === 0 is for static syscalls
+                        // Since static syscall does not alter the execution we only add pc if it's an internal call
+                        if (insn.src === 1n) {
+                            targetPc = key
+                        }
                     }
                     if (typeof targetPc !== "undefined") {
                         if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
