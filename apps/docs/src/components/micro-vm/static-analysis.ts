@@ -241,7 +241,7 @@ export const Analysis = {
         // Filtering cfg nodes, cfg edges and functions
         self.cfgNodes.inner = new Map(
             self.cfgNodes.inner.entries().filter(([cfgNodeStart, _cfgNode]) => {
-                self.instructions.find((insn) => {
+                return self.instructions.find((insn) => {
                     return insn.ptr === cfgNodeStart
                 })
             }),
