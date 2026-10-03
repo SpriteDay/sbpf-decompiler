@@ -8,9 +8,9 @@ export interface CfgNode {
     /** Human readable name */
     label: string
     /** Predesessors which can jump to the start of this basic block */
-    sources: Array<number>
+    sources: Array<bigint>
     /** Successors which the end of this basic block can jump to */
-    destinations: Array<number>
+    destinations: Array<bigint>
     /** Range of the instructions belonging to this basic block */
     instructions: [number, number]
 }
@@ -274,6 +274,7 @@ export const Analysis = {
 
         //
         let instructionIndex = 0
+        let cfgEdgeIterCounter = 0
         self.cfgNodes.inner
             .entries()
             .forEach(([cfgNodeStart, cfgNode], index) => {
@@ -294,6 +295,20 @@ export const Analysis = {
                         cfgNode.instructions[1] = instructionIndex
                     } else {
                         break
+                    }
+                }
+                // If there is a recorded CFG edge within our calculated CFG node boundaries,
+                // we copy edge's destinations from the edge to the current CFG node
+                if (
+                    cfgEdgeIterCounter + 1 <
+                    Array.from(cfgEdges.inner.entries()).length
+                ) {
+                    const nextCfgEdge = Array.from(cfgEdges.inner.entries())[
+                        cfgEdgeIterCounter + 1
+                    ]
+                    if (nextCfgEdge[0] <= cfgNodeEnd) {
+                        cfgNode.destinations = nextCfgEdge[1][1]
+                        cfgEdgeIterCounter++
                     }
                 }
             })
