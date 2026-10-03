@@ -110,7 +110,7 @@ export const Analysis = {
                 })
             }
         }
-        const cfgEdges = SortedMap.new<Array<bigint>>()
+        const cfgEdges = SortedMap.new<{ 0: bigint; 1: Array<bigint> }>()
         for (const insn of self.instructions) {
             const targetPc = BigInt.asUintN(
                 64,
@@ -247,11 +247,9 @@ export const Analysis = {
             }),
         )
 
-        for (const cfgEdge of cfgEdges.inner) {
-            cfgEdge[1].forEach((destination, index) => {
-                if (!self.cfgNodes.inner.has(destination)) {
-                    delete cfgEdge[1][index]
-                }
+        for (const [_key, cfgEdge] of cfgEdges.inner) {
+            cfgEdge[1] = cfgEdge[1].filter((destinations) => {
+                return self.cfgNodes.inner.has(destinations)
             })
         }
 

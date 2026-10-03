@@ -17,6 +17,7 @@ import { WideSlider } from "@/components/custom/wide-slider"
 import { Executable } from "@/components/micro-vm/elf"
 import { BuiltinProgram, FunctionRegistry } from "@/components/micro-vm/program"
 import { Config } from "@/components/micro-vm/vm"
+import { formatInstruction } from "../components/utils"
 
 const Slots: Array<InsnRaw> = [
     { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0x01n },
@@ -61,6 +62,23 @@ export function ControlFlowGraph() {
                 <CardDescription></CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center py-2">
+                <div className="flex justify-center p-2 flex-col gap-1 ">
+                    {Slots.map((_, index) => {
+                        return (
+                            <span
+                                key={index}
+                                className="font-semibold font-mono rounded-sm px-1"
+                            >
+                                {index}:{" "}
+                                {formatInstruction({
+                                    prog: Slots,
+                                    pc: BigInt(index),
+                                    style: "LLVM",
+                                })}
+                            </span>
+                        )
+                    })}
+                </div>
                 {/* <ExecutionInspector
                     slots={Slots}
                     registerTrace={registerTrace}
