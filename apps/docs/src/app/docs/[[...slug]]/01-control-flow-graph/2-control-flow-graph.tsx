@@ -16,12 +16,11 @@ import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 import { WideSlider } from "@/components/custom/wide-slider"
 
 const Slots: Array<InsnRaw> = [
-    { opc: OpCodes.LD_DW_IMM, dst: 1n, src: 0n, off: 0n, imm: 0x02n },
-    { opc: 0x00n, dst: 0n, src: 0n, off: 0n, imm: 0x01n },
-    { opc: OpCodes.MOV64_IMM, dst: 0n, src: 0n, off: 0n, imm: 0x07n },
-    { opc: OpCodes.LD_DW_IMM, dst: 2n, src: 0n, off: 0n, imm: 0x05n },
-    { opc: 0x00n, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
-    { opc: OpCodes.ADD64_REG, dst: 0n, src: 2n, off: 0n, imm: 0x00n },
+    { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0x01n },
+    { opc: OpCodes.JEQ64_IMM, dst: 1n, src: 0n, off: 2n, imm: 0x01n },
+    { opc: OpCodes.LD_DW_IMM, dst: 1n, src: 0n, off: 0n, imm: 0x55667788n },
+    { opc: 0x00n, dst: 0n, src: 0n, off: 0n, imm: 0x11223344n },
+    { opc: OpCodes.ADD64_REG, dst: 1n, src: 2n, off: 0n, imm: 0x00n },
     { opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
 ]
 
