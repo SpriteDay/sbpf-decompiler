@@ -311,6 +311,16 @@ export const Analysis = {
                         cfgEdgeIterCounter++
                     }
                 }
+                // Record a fall-through PC if we are not in the function
+                // (if we are in the function, the boundaries end at EXIT and we don't continue)
+                if (index + 1 < Array.from(self.cfgNodes.inner).length) {
+                    const nextCfgNode = Array.from(self.cfgNodes.inner)[
+                        index + 1
+                    ]
+                    if (!self.functions.inner.get(cfgNodeStart)) {
+                        cfgNode.destinations.push(nextCfgNode[0])
+                    }
+                }
             })
     },
 }
