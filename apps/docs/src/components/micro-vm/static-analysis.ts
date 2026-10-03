@@ -300,20 +300,20 @@ export const Analysis = {
                 // If there is a recorded CFG edge within our calculated CFG node boundaries,
                 // we copy edge's destinations from the edge to the current CFG node
                 if (
-                    cfgEdgeIterCounter + 1 <
+                    cfgEdgeIterCounter <
                     Array.from(cfgEdges.inner.entries()).length
                 ) {
                     const nextCfgEdge = Array.from(cfgEdges.inner.entries())[
-                        cfgEdgeIterCounter + 1
+                        cfgEdgeIterCounter
                     ]
                     if (nextCfgEdge[0] <= cfgNodeEnd) {
-                        cfgNode.destinations = nextCfgEdge[1][1]
+                        cfgNode.destinations = [...nextCfgEdge[1][1]]
                         cfgEdgeIterCounter++
                     }
-                }
-                // Record a fall-through PC if we are not in the function
-                // (if we are in the function, the boundaries end at EXIT and we don't continue)
-                if (index + 1 < Array.from(self.cfgNodes.inner).length) {
+
+                    // Record a fall-through PC if we are not in the function
+                    // (if we are in the function, the boundaries end at EXIT and we don't continue)
+                } else if (index + 1 < Array.from(self.cfgNodes.inner).length) {
                     const nextCfgNode = Array.from(self.cfgNodes.inner)[
                         index + 1
                     ]
