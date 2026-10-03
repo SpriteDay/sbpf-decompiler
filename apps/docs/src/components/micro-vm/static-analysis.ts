@@ -101,7 +101,7 @@ export const Analysis = {
             sbpfVersion,
         }: { flattenCallGraph?: boolean; sbpfVersion: SBPFVersion },
     ) {
-        self.cfgNodes.inner.set(0n, CfgNode.default())
+        SortedMap.insert(self.cfgNodes, { key: 0n, value: CfgNode.default() })
         for (const pc of self.functions.inner.keys()) {
             if (!self.cfgNodes.inner.get(pc)) {
                 SortedMap.insert(self.cfgNodes, {
@@ -114,7 +114,7 @@ export const Analysis = {
         for (const insn of self.instructions) {
             const targetPc = BigInt.asUintN(
                 64,
-                BigInt.asIntN(64, insn.ptr) + BigInt.asIntN(64, insn.off),
+                BigInt.asIntN(64, insn.ptr) + 1n + BigInt.asIntN(64, insn.off),
             )
             switch (insn.opc) {
                 case OpCodes.CALL_IMM: {
@@ -201,7 +201,7 @@ export const Analysis = {
                     }
                     SortedMap.insert(cfgEdges, {
                         key: insn.ptr,
-                        value: [targetPc],
+                        value: [insn.opc, [targetPc]],
                     })
                     break
                 }
