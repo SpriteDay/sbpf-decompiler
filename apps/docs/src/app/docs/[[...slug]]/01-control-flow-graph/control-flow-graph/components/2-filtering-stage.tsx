@@ -45,7 +45,7 @@ export function FilteringStage({
             sbpfVersion,
         })
 
-        const removed: {
+        let removed: {
             leaders: Array<{ index: number; pc: bigint; reason: string }>
             edgeDestinations: Array<{
                 edgePc: bigint
@@ -59,19 +59,34 @@ export function FilteringStage({
             functions: [],
         }
 
-        for (let i = 0; i < currentStep; i++) {
+        for (let i = 0; i <= currentStep; i++) {
+            const lastRemoved: {
+                leaders: Array<{ index: number; pc: bigint; reason: string }>
+                edgeDestinations: Array<{
+                    edgePc: bigint
+                    destinationPc: bigint
+                    reason: string
+                }>
+                functions: Array<{ index: number; pc: bigint; reason: string }>
+            } = {
+                leaders: [],
+                edgeDestinations: [],
+                functions: [],
+            }
+
             let index = i
             if (index < leaders.inner.size) {
                 const [leaderPc, _leader] = Array.from(leaders.inner)[index]
                 if (
                     !slots.entries().some(([pc, _]) => leaderPc === BigInt(pc))
                 ) {
-                    removed.leaders.push({
+                    lastRemoved.leaders.push({
                         index,
                         pc: leaderPc,
                         reason: "leader's PC is not in the program",
                     })
                 }
+                removed = lastRemoved
                 continue
             }
 
@@ -82,7 +97,7 @@ export function FilteringStage({
                     if (leaders.inner.has(destination)) {
                         return true
                     } else {
-                        removed.edgeDestinations.push({
+                        lastRemoved.edgeDestinations.push({
                             edgePc: key,
                             destinationPc: destination,
                             reason: "destination must land on a leader",
@@ -90,6 +105,8 @@ export function FilteringStage({
                         return false
                     }
                 })
+                removed = lastRemoved
+                continue
             }
 
             index -= edges.inner.size
@@ -98,13 +115,15 @@ export function FilteringStage({
                     functionRegistry.map.inner,
                 )[index]
                 if (!leaders.inner.has(functionStart)) {
-                    removed.functions.push({
+                    lastRemoved.functions.push({
                         index,
                         pc: functionStart,
                         reason: "function must start at a leader",
                     })
                 }
             }
+
+            removed = lastRemoved
         }
 
         return {
@@ -139,6 +158,11 @@ export function FilteringStage({
                         )?.[0]
                         const isLeader = !!leaders.inner.get(BigInt(index))
                         const isEdge = !!edges.inner.get(BigInt(index))
+                        const isRemoved =
+                            isLeader &&
+                            removed.leaders.some(
+                                (val) => val.pc === BigInt(index),
+                            )
                         return (
                             <React.Fragment key={index}>
                                 {labelU8Arr && (
@@ -151,6 +175,7 @@ export function FilteringStage({
                                     className={cn(
                                         "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
                                         isLeader &&
+                                            !isRemoved &&
                                             "bg-red-800/15 dark:bg-red-800/15",
                                         isEdge &&
                                             "bg-indigo-800/15 dark:bg-indigo-800/15",
@@ -184,13 +209,22 @@ export function FilteringStage({
                                         ([pc, _], index) => {
                                             const isActive =
                                                 index === currentStep
+                                            const isRemoved =
+                                                removed.leaders.some(
+                                                    (val) =>
+                                                        val.index === index,
+                                                )
                                             return (
                                                 <Badge
                                                     className={cn(
                                                         "text-foreground me-1 mb-1",
-                                                        isActive
-                                                            ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
-                                                            : "bg-red-800/15 dark:bg-red-500/15",
+                                                        isRemoved
+                                                            ? isActive
+                                                                ? "bg-gray-950 dark:bg-gray-700 text-background dark:text-foreground"
+                                                                : "bg-gray-800/15 dark:bg-gray-500/15"
+                                                            : isActive
+                                                              ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
+                                                              : "bg-red-800/15 dark:bg-red-500/15",
                                                     )}
                                                     key={pc}
                                                 >
@@ -246,13 +280,22 @@ export function FilteringStage({
                                                     leaders.inner.size +
                                                     edges.inner.size ===
                                                 currentStep
+                                            const isRemoved =
+                                                removed.functions.some(
+                                                    (val) =>
+                                                        val.index === index,
+                                                )
                                             return (
                                                 <Badge
                                                     className={cn(
                                                         "text-foreground me-1 mb-1",
-                                                        isActive
-                                                            ? "bg-green-950 dark:bg-green-700 text-background dark:text-foreground"
-                                                            : "bg-green-800/15 dark:bg-green-500/15",
+                                                        isRemoved
+                                                            ? isActive
+                                                                ? "bg-gray-950 dark:bg-gray-700 text-background dark:text-foreground"
+                                                                : "bg-gray-800/15 dark:bg-gray-500/15"
+                                                            : isActive
+                                                              ? "bg-green-950 dark:bg-green-700 text-background dark:text-foreground"
+                                                              : "bg-green-800/15 dark:bg-green-500/15",
                                                     )}
                                                     key={key}
                                                 >
@@ -330,7 +373,7 @@ export function FilteringStage({
                             <Label>
                                 Current step:
                                 <span className="font-bold tabular-nums">
-                                    {currentStep}
+                                    {currentStep + 1}
                                 </span>
                             </Label>
                             <WideSlider
