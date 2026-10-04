@@ -158,7 +158,11 @@ function recordLeadersAndEdges({
     }>
     changes: {
         leaders: Array<{ pc: bigint; reason: string }>
-        edges: Array<{ pc: bigint; reason: string }>
+        edges: Array<{
+            pc: bigint
+            reason: string
+            destinations: Array<bigint>
+        }>
     }
 } {
     const leaders = SortedMap.new<CfgNode>()
@@ -168,7 +172,11 @@ function recordLeadersAndEdges({
     }>()
     const changes: {
         leaders: Array<{ pc: bigint; reason: string }>
-        edges: Array<{ pc: bigint; reason: string }>
+        edges: Array<{
+            pc: bigint
+            reason: string
+            destinations: Array<bigint>
+        }>
     } = {
         leaders: [],
         edges: [],
@@ -251,9 +259,29 @@ function recordLeadersAndEdges({
                 changes.edges.push({
                     pc,
                     reason: "calls end basic blocks",
+                    destinations,
                 })
             }
             break
+        }
+        case OpCodes.CALL_REG: {
+            if (!leaders.inner.get(pc + 1n)) {
+                SortedMap.insert(leaders, {
+                    key: pc + 1n,
+                    value: CfgNode.default(),
+                })
+                changes.leaders.push({
+                    pc,
+                    reason: "start of a basic block at the fall-through PC",
+                })
+            }
+
+            const destinations = [pc + 1n]
+            changes.edges.push({
+                pc,
+                reason: "calls end basic blocks",
+                destinations,
+            })
         }
     }
 
