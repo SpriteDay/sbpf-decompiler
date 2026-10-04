@@ -18,7 +18,7 @@ import {
     SBPFVersion,
 } from "@/components/micro-vm/program"
 import { Config } from "@/components/micro-vm/vm"
-import { FomrattingStyle, formatInstruction } from "../components/utils"
+import { FormattingStyle, formatInstruction } from "../components/utils"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -64,7 +64,10 @@ const StagesMap = {
     string,
     (props: {
         slots: Array<InsnRaw>
-        formatStyle: FomrattingStyle
+        formatStyle: FormattingStyle
+        setFormatStyle: React.ComponentProps<
+            typeof FormattingSelector
+        >["setFormatStyle"]
         leftBlock: HTMLElement
         rightBlock: HTMLElement
     }) => React.ReactNode
@@ -79,7 +82,7 @@ export function ControlFlowGraph() {
     const [rightBlock, setRightBlock] = useState<HTMLElement | null>(null)
     const ActiveStage = StagesMap[stage]
 
-    const [formatStyle, setFormatStyle] = useState<FomrattingStyle>("NASM")
+    const [formatStyle, setFormatStyle] = useState<FormattingStyle>("NASM")
 
     // Debug static analysis implementation
     useEffect(() => {
@@ -132,18 +135,6 @@ export function ControlFlowGraph() {
                     orientation="horizontal"
                     className="relative rounded-lg border"
                 >
-                    <div className="absolute top-2 right-2 z-10 opacity-90">
-                        <ToggleGroup
-                            variant="outline"
-                            value={[formatStyle]}
-                            onValueChange={(value) =>
-                                setFormatStyle(value[0] as FomrattingStyle)
-                            }
-                        >
-                            <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
-                            <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
-                        </ToggleGroup>
-                    </div>
                     <ResizablePanel defaultSize="50%">
                         <div ref={setLeftBlock} className="h-full" />
                     </ResizablePanel>
@@ -156,6 +147,7 @@ export function ControlFlowGraph() {
                     <ActiveStage
                         slots={Slots}
                         formatStyle={formatStyle}
+                        setFormatStyle={setFormatStyle}
                         leftBlock={leftBlock}
                         rightBlock={rightBlock}
                     />
@@ -165,14 +157,39 @@ export function ControlFlowGraph() {
     )
 }
 
+function FormattingSelector({
+    formatStyle,
+    setFormatStyle,
+}: {
+    formatStyle: FormattingStyle
+    setFormatStyle: (newFormatStyle: FormattingStyle) => void
+}) {
+    return (
+        <ToggleGroup
+            variant="outline"
+            value={[formatStyle]}
+            onValueChange={(value) =>
+                setFormatStyle(value[0] as FormattingStyle)
+            }
+        >
+            <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
+            <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
+        </ToggleGroup>
+    )
+}
+
 function RecordingLeadersAndEdgesStage({
     slots,
     formatStyle,
+    setFormatStyle,
     leftBlock,
     rightBlock,
 }: {
     slots: Array<InsnRaw>
-    formatStyle: FomrattingStyle
+    formatStyle: FormattingStyle
+    setFormatStyle: React.ComponentProps<
+        typeof FormattingSelector
+    >["setFormatStyle"]
     leftBlock: HTMLElement
     rightBlock: HTMLElement
 }) {
@@ -189,8 +206,14 @@ function RecordingLeadersAndEdgesStage({
             {createPortal(
                 <div
                     key={0}
-                    className="flex justify-center p-2 flex-col gap-1 "
+                    className="relative flex justify-center p-2 flex-col gap-1 "
                 >
+                    <div className="absolute top-3 right-3 z-10 opacity-90">
+                        <FormattingSelector
+                            formatStyle={formatStyle}
+                            setFormatStyle={setFormatStyle}
+                        />
+                    </div>
                     {/* eslint-disable-next-line react-hooks/refs */}
                     {Slots.map((_, index) => {
                         return (
@@ -272,11 +295,15 @@ function RecordingLeadersAndEdgesStage({
 function FilteringStage({
     slots,
     formatStyle,
+    setFormatStyle,
     leftBlock,
     rightBlock,
 }: {
     slots: Array<InsnRaw>
-    formatStyle: FomrattingStyle
+    formatStyle: FormattingStyle
+    setFormatStyle: React.ComponentProps<
+        typeof FormattingSelector
+    >["setFormatStyle"]
     leftBlock: HTMLElement
     rightBlock: HTMLElement
 }) {
@@ -303,11 +330,15 @@ function FilteringStage({
 function DefiningBlockBoundariesStage({
     slots,
     formatStyle,
+    setFormatStyle,
     leftBlock,
     rightBlock,
 }: {
     slots: Array<InsnRaw>
-    formatStyle: FomrattingStyle
+    formatStyle: FormattingStyle
+    setFormatStyle: React.ComponentProps<
+        typeof FormattingSelector
+    >["setFormatStyle"]
     leftBlock: HTMLElement
     rightBlock: HTMLElement
 }) {

@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/resizable"
 import { cn } from "@/lib/utils"
 import { useMemo, useState } from "react"
-import { FomrattingStyle, formatInstruction } from "./utils"
+import { FormattingStyle, formatInstruction } from "./utils"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ExecutionInspector({
@@ -19,7 +19,7 @@ export function ExecutionInspector({
     currentStep: number
     registerTrace: Array<BigUint64Array>
 }) {
-    const [formatStyle, setFormatStyle] = useState<FomrattingStyle>("NASM")
+    const [formatStyle, setFormatStyle] = useState<FormattingStyle>("NASM")
 
     const currentRegistersState = useMemo(() => {
         return registerTrace[currentStep]
@@ -52,7 +52,7 @@ export function ExecutionInspector({
                     variant="outline"
                     value={[formatStyle]}
                     onValueChange={(value) =>
-                        setFormatStyle(value[0] as FomrattingStyle)
+                        setFormatStyle(value[0] as FormattingStyle)
                     }
                 >
                     <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>

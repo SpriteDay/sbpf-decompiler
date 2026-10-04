@@ -1,6 +1,6 @@
 import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 
-export type FomrattingStyle = "NASM" | "LLVM"
+export type FormattingStyle = "NASM" | "LLVM"
 
 export function formatInstruction({
     prog,
@@ -10,7 +10,7 @@ export function formatInstruction({
 }: {
     prog: Array<InsnRaw>
     pc: bigint
-    style?: FomrattingStyle
+    style?: FormattingStyle
     augmentLddw?: boolean
 }): string {
     const styleWithFallback = style || "NASM"
