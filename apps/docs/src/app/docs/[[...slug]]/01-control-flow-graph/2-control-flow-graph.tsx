@@ -111,9 +111,11 @@ export function ControlFlowGraph() {
         <Card>
             <CardHeader>
                 <CardTitle>Static Analysis Debug</CardTitle>
-                <CardDescription></CardDescription>
+                <CardDescription>
+                    Use selector to pick and inspect the stage of building a CFG
+                </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col justify-center py-2">
+            <CardContent className="flex flex-col justify-center gap-2">
                 <div className="w-full flex justify-center">
                     <ToggleGroup
                         variant="outline"
@@ -207,7 +209,6 @@ function RecordingLeadersAndEdgesStage({
                             setFormatStyle={setFormatStyle}
                         />
                     </div>
-                    {}
                     {Slots.map((_, index) => {
                         return (
                             <span
@@ -234,12 +235,15 @@ function RecordingLeadersAndEdgesStage({
             )}
             {createPortal(
                 <ResizablePanelGroup key={1} orientation="vertical">
-                    <ResizablePanel defaultSize="75%">
+                    <ResizablePanel defaultSize="70%">
                         <div className="flex justify-center p-2 flex-col gap-1"></div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize="25%">
-                        <div className="flex w-full flex-col items-center gap-4">
+                    <ResizablePanel
+                        defaultSize="30%"
+                        className="flex justify-center items-center"
+                    >
+                        <div className="flex w-full flex-col items-center  gap-4 p-3">
                             <Label>
                                 Current PC:
                                 <span className="font-bold tabular-nums font-mono">
@@ -252,7 +256,7 @@ function RecordingLeadersAndEdgesStage({
                                     setCurrentPc(value as number)
                                 }}
                                 min={0}
-                                max={slots.length}
+                                max={slots.length - 1}
                                 step={1}
                                 className="mx-auto w-full max-w-lg"
                             />
