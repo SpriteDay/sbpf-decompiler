@@ -350,7 +350,7 @@ export function getFilteredLeadersAndEdges({
                     removed.edgeDestinations.push({
                         edgePc: key,
                         destinationPc: destination,
-                        reason: "clean up after a leaders filtering",
+                        reason: "edge target must be within a program",
                     })
                     return false
                 }
@@ -372,7 +372,7 @@ export function getFilteredLeadersAndEdges({
                 removed.functions.push({
                     index,
                     pc: functionStart,
-                    reason: "clean up after a leaders filtering",
+                    reason: "function start must be within a program",
                 })
             }
         }
