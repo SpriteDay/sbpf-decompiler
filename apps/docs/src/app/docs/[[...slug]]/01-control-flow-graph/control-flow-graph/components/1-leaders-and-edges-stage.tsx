@@ -1,7 +1,11 @@
-import { InsnRaw } from "@/components/micro-vm/ebpf"
+import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 import React, { useState } from "react"
 import { WideSlider } from "@/components/custom/wide-slider"
-import { FunctionRegistry } from "@/components/micro-vm/program"
+import {
+    FunctionRegistry,
+    SBPFFeatures,
+    SBPFVersion,
+} from "@/components/micro-vm/program"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -140,41 +144,122 @@ function recordLeadersAndEdges({
     slots,
     pc,
     functionRegistry,
+    sbpfVersion,
 }: {
     slots: Array<InsnRaw>
     pc: bigint
     functionRegistry: FunctionRegistry<bigint>
+    sbpfVersion: SBPFVersion
 }): {
     leaders: SortedMap<CfgNode>
     edges: SortedMap<{
         opc: bigint
         destinations: Array<bigint>
     }>
-    log: string
+    changes: {
+        leaders: Array<{ pc: bigint; reason: string }>
+        edges: Array<{ pc: bigint; reason: string }>
+    }
 } {
     const leaders = SortedMap.new<CfgNode>()
     const edges = SortedMap.new<{
         opc: bigint
         destinations: Array<bigint>
     }>()
-    let log = ""
+    const changes: {
+        leaders: Array<{ pc: bigint; reason: string }>
+        edges: Array<{ pc: bigint; reason: string }>
+    } = {
+        leaders: [],
+        edges: [],
+    }
 
     if (pc === 0n) {
         SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
-        log += `New leader at PC${pc}: First instruction is always a leader\n`
+        changes.leaders.push({
+            pc,
+            reason: "instruction is always a leader",
+        })
     }
 
     const registryEntry = functionRegistry.map.inner.get(pc)
     if (registryEntry) {
         if (!leaders.inner.get(pc)) {
             SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
-            log += `New leader at PC${pc}: found registry function with the label "${u8ArrayToString(registryEntry[0])}"`
+            changes.leaders.push({
+                pc,
+                reason: `found registry function with the label "${u8ArrayToString(registryEntry[0])}"`,
+            })
+        }
+    }
+
+    const insn = slots[Number(pc)]
+    switch (insn.opc) {
+        case OpCodes.CALL_IMM: {
+            const callImmTargetPc = SBPFFeatures.calculateCallImmTargetPc(
+                sbpfVersion,
+                {
+                    pc,
+                    imm: insn.imm,
+                },
+            )
+            let targetPc: bigint | undefined = undefined
+            // In case a function was found in the registr and it's not V3+ syscall
+            if (
+                registryEntry &&
+                !(SBPFFeatures.staticSyscalls(sbpfVersion) && insn.src === 0n)
+            ) {
+                targetPc = registryEntry[1]
+            }
+            if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
+                // According to SIMD-0178 src === 1 is for internal callsm and src === 0 for static syscalls
+                // Since static syscall does not alter the execution, we only add pc if it's an internal call
+                if (insn.src === 1n) {
+                    targetPc = callImmTargetPc
+                }
+            }
+            if (typeof targetPc !== "undefined") {
+                // Mark start of a basic block at the fall-through PC
+                if (!leaders.inner.get(pc + 1n)) {
+                    SortedMap.insert(leaders, {
+                        key: pc + 1n,
+                        value: CfgNode.default(),
+                    })
+                    changes.leaders.push({
+                        pc: pc + 1n,
+                        reason: "start of a basic block at the fall-through PC",
+                    })
+                }
+                // Mark start of a basic block at the callee PC
+                if (!leaders.inner.get(targetPc)) {
+                    SortedMap.insert(leaders, {
+                        key: targetPc,
+                        value: CfgNode.default(),
+                    })
+                    changes.leaders.push({
+                        pc: targetPc,
+                        reason: "start of a basic block at the callee PC",
+                    })
+                }
+                // Only recording local function destinations
+                const destinations = [pc + 1n]
+
+                SortedMap.insert(edges, {
+                    key: pc,
+                    value: { opc: insn.opc, destinations },
+                })
+                changes.edges.push({
+                    pc,
+                    reason: "calls end basic blocks",
+                })
+            }
+            break
         }
     }
 
     return {
         leaders,
         edges,
-        log,
+        changes,
     }
 }
