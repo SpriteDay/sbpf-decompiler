@@ -440,13 +440,13 @@ function recordLeadersAndEdges({
             break
         }
         case OpCodes.EXIT: {
-            if (leaders.inner.get(pc + 1n)) {
+            if (!leaders.inner.get(pc + 1n)) {
                 SortedMap.insert(leaders, {
                     key: pc + 1n,
                     value: CfgNode.default(),
                 })
                 changes.leaders.push({
-                    pc,
+                    pc: pc + 1n,
                     reason: "instruction after exit starts new block",
                 })
             }
