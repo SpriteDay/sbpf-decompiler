@@ -91,18 +91,14 @@ export function LeadersAndEdgesStage({
                             BigInt(index),
                         )?.[0]
                         const isLeader = !!leaders.inner.get(BigInt(index))
-                        const isFreshLeader =
-                            isLeader &&
-                            changes.leaders.some(
-                                (val) => val.pc === BigInt(index),
-                            )
+                        const isFreshLeader = changes.leaders.some(
+                            (val) => val.pc === BigInt(index),
+                        )
 
                         const isEdge = !!edges.inner.get(BigInt(index))
-                        const isFreshEdge =
-                            isEdge &&
-                            changes.edges.some(
-                                (val) => val.pc === BigInt(index),
-                            )
+                        const isFreshEdge = changes.edges.some(
+                            (val) => val.pc === BigInt(index),
+                        )
 
                         return (
                             <React.Fragment key={index}>
@@ -114,7 +110,7 @@ export function LeadersAndEdgesStage({
                                 <span
                                     key={index}
                                     className={cn(
-                                        "font-semibold font-mono rounded-sm pe-1 ps-4",
+                                        "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
                                         index === currentPc - 1 &&
                                             "bg-amber-950/10 dark:bg-amber-200/20",
                                         {
@@ -127,14 +123,14 @@ export function LeadersAndEdgesStage({
                                             (index === currentPc
                                                 ? "bg-red-950 dark:bg-red-950 text-background"
                                                 : isFreshLeader
-                                                  ? "bg-red-900/50 dark:bg-red-900/50"
-                                                  : "bg-red-400/30 dark:bg-red-400/30"),
+                                                  ? "bg-red-700/40 dark:bg-red-700/40"
+                                                  : "bg-red-800/15 dark:bg-red-800/15"),
                                         isEdge &&
                                             (index === currentPc
                                                 ? "bg-indigo-950 dark:bg-indigo-950 text-background"
                                                 : isFreshEdge
-                                                  ? "bg-indigo-900/50 dark:bg-indigo-900/50"
-                                                  : "bg-indigo-400/30 dark:bg-indigo-400/30"),
+                                                  ? "bg-indigo-700/40 dark:bg-indigo-700/40"
+                                                  : "bg-indigo-800/15 dark:bg-indigo-800/15"),
                                     )}
                                 >
                                     {index}:{" "}
@@ -377,7 +373,7 @@ function recordLeadersAndEdges({
                     value: CfgNode.default(),
                 })
                 changes.leaders.push({
-                    pc,
+                    pc: pc + 1n,
                     reason: "fall-through of jump marks start of basic block",
                 })
             }
@@ -387,7 +383,7 @@ function recordLeadersAndEdges({
                     value: CfgNode.default(),
                 })
                 changes.leaders.push({
-                    pc,
+                    pc: targetPc,
                     reason: "target of jump marks start of a basic block",
                 })
             }
