@@ -37,14 +37,87 @@ export function FilteringStage({
     rightBlock: HTMLElement
 }) {
     const [currentStep, setCurrentStep] = useState(0)
-    const { leaders, edges } = useMemo(() => {
-        return accumulateLeadersAndEdges({
+    const { leaders, edges, removed } = useMemo(() => {
+        const { leaders, edges } = accumulateLeadersAndEdges({
             slots,
             endPc: BigInt(slots.length - 1),
             functionRegistry,
             sbpfVersion,
         })
-    }, [slots, functionRegistry, sbpfVersion])
+
+        const removed: {
+            leaders: Array<{ index: number; pc: bigint; reason: string }>
+            edgeDestinations: Array<{
+                edgePc: bigint
+                destinationPc: bigint
+                reason: string
+            }>
+            functions: Array<{ index: number; pc: bigint; reason: string }>
+        } = {
+            leaders: [],
+            edgeDestinations: [],
+            functions: [],
+        }
+
+        for (let i = 0; i < currentStep; i++) {
+            let index = i
+            if (index < leaders.inner.size) {
+                const [leaderPc, _leader] = Array.from(leaders.inner)[index]
+                if (
+                    !slots.entries().some(([pc, _]) => leaderPc === BigInt(pc))
+                ) {
+                    removed.leaders.push({
+                        index,
+                        pc: leaderPc,
+                        reason: "leader's PC is not in the program",
+                    })
+                }
+                continue
+            }
+
+            index -= leaders.inner.size
+            if (index < edges.inner.size) {
+                const [key, edge] = Array.from(edges.inner)[index]
+                edge.destinations = edge.destinations.filter((destination) => {
+                    if (leaders.inner.has(destination)) {
+                        return true
+                    } else {
+                        removed.edgeDestinations.push({
+                            edgePc: key,
+                            destinationPc: destination,
+                            reason: "destination must land on a leader",
+                        })
+                        return false
+                    }
+                })
+            }
+
+            index -= edges.inner.size
+            if (index < functionRegistry.map.inner.size) {
+                const [functionStart, _] = Array.from(
+                    functionRegistry.map.inner,
+                )[index]
+                if (!leaders.inner.has(functionStart)) {
+                    removed.functions.push({
+                        index,
+                        pc: functionStart,
+                        reason: "function must start at a leader",
+                    })
+                }
+            }
+        }
+
+        return {
+            ...accumulateLeadersAndEdges({
+                slots,
+                endPc: BigInt(slots.length - 1),
+                functionRegistry,
+                sbpfVersion,
+            }),
+            removed,
+        }
+    }, [slots, functionRegistry, sbpfVersion, currentStep])
+
     const maxStep =
         leaders.inner.size +
         edges.inner.size +
@@ -190,6 +263,62 @@ export function FilteringStage({
                                     )
                                 )}
                             </p>
+                        </div>
+                        <div>
+                            <span>Events:</span>
+                            {removed.leaders.length === 0 &&
+                            removed.edgeDestinations.length === 0 &&
+                            removed.functions.length === 0 ? (
+                                <span className="text-foreground/50">
+                                    {" <Empty>"}
+                                </span>
+                            ) : (
+                                <div className="flex flex-col gap-1">
+                                    {Array.from(removed.leaders).map(
+                                        ({ pc, reason }) => {
+                                            return (
+                                                <span key={`leader-${pc}`}>
+                                                    <span className="text-red-950 dark:text-red-400 font-semibold">
+                                                        - Leader at PC {pc} was
+                                                        removed
+                                                    </span>
+                                                    : {reason}
+                                                </span>
+                                            )
+                                        },
+                                    )}
+                                    {Array.from(removed.edgeDestinations).map(
+                                        ({ edgePc, destinationPc, reason }) => {
+                                            return (
+                                                <span
+                                                    key={`${edgePc}${destinationPc}`}
+                                                >
+                                                    <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
+                                                        - Destination PC{" "}
+                                                        {destinationPc} was
+                                                        removed from the edge PC{" "}
+                                                        {edgePc}
+                                                    </span>
+                                                    : {reason}
+                                                </span>
+                                            )
+                                        },
+                                    )}
+                                    {Array.from(removed.functions).map(
+                                        ({ pc, reason }) => {
+                                            return (
+                                                <span key={`function-${pc}`}>
+                                                    <span className="text-green-950 dark:text-green-400 font-semibold">
+                                                        - Function at PC {pc}{" "}
+                                                        was removed
+                                                    </span>
+                                                    : {reason}
+                                                </span>
+                                            )
+                                        },
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />

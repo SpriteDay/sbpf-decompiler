@@ -261,8 +261,8 @@ export const Analysis = {
         )
 
         for (const [_key, cfgEdge] of cfgEdges.inner) {
-            cfgEdge[1] = cfgEdge[1].filter((destinations) => {
-                return self.cfgNodes.inner.has(destinations)
+            cfgEdge[1] = cfgEdge[1].filter((destination) => {
+                return self.cfgNodes.inner.has(destination)
             })
         }
 

@@ -188,7 +188,7 @@ export function LeadersAndEdgesStage({
                                         {Array.from(changes.leaders).map(
                                             ({ pc, reason }) => {
                                                 return (
-                                                    <span key={pc}>
+                                                    <span key={`leader-${pc}`}>
                                                         <span className="text-red-950 dark:text-red-400 font-semibold">
                                                             - PC {pc} became a
                                                             leader
@@ -201,7 +201,7 @@ export function LeadersAndEdgesStage({
                                         {Array.from(changes.edges).map(
                                             ({ pc, reason }) => {
                                                 return (
-                                                    <span key={pc}>
+                                                    <span key={`edge-${pc}`}>
                                                         <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
                                                             - PC {pc} became an
                                                             edge
