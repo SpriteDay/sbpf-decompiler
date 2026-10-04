@@ -55,6 +55,8 @@ const Slots: Array<Insn> = [
     { ptr: 18n, opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
 ]
 
+const Version: SBPFVersion = "V3"
+
 const functionRegistry = FunctionRegistry.default<bigint>()
 FunctionRegistry.registerFunction(functionRegistry, {
     key: 0n,
@@ -76,6 +78,7 @@ const StagesMap = {
     (props: {
         slots: Array<InsnRaw>
         functionRegistry: FunctionRegistry<bigint>
+        sbpfVersion: SBPFVersion
         formatStyle: FormattingStyle
         setFormatStyle: React.ComponentProps<
             typeof FormattingSelector
@@ -101,12 +104,11 @@ export function ControlFlowGraph() {
         const config = Config.default()
         config.enableRegisterTracing = true
 
-        const sbpfVersion: SBPFVersion = "V3"
         const loader = BuiltinProgram.new({ config })
 
         const executable: Executable = {
             slots: Slots,
-            sbpfVersion,
+            sbpfVersion: Version,
             functionRegistry,
             loader,
         }
@@ -152,6 +154,7 @@ export function ControlFlowGraph() {
                     <ActiveStage
                         slots={Slots}
                         functionRegistry={functionRegistry}
+                        sbpfVersion={Version}
                         formatStyle={formatStyle}
                         setFormatStyle={setFormatStyle}
                         leftBlock={leftBlock}

@@ -1,6 +1,6 @@
 import { InsnRaw } from "@/components/micro-vm/ebpf"
 import React from "react"
-import { FunctionRegistry } from "@/components/micro-vm/program"
+import { FunctionRegistry, SBPFVersion } from "@/components/micro-vm/program"
 import { FormattingStyle } from "../../../components/utils"
 import { ResizablePanelGroup } from "@/components/ui/resizable"
 import { createPortal } from "react-dom"
@@ -9,6 +9,7 @@ import { FormattingSelector } from "../components/formatting-selector"
 export function FilteringStage({
     slots,
     functionRegistry,
+    sbpfVersion,
     formatStyle,
     setFormatStyle,
     leftBlock,
@@ -16,6 +17,7 @@ export function FilteringStage({
 }: {
     slots: Array<InsnRaw>
     functionRegistry: FunctionRegistry<bigint>
+    sbpfVersion: SBPFVersion
     formatStyle: FormattingStyle
     setFormatStyle: React.ComponentProps<
         typeof FormattingSelector

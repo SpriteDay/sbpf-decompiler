@@ -1,5 +1,5 @@
 import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
-import React, { useState } from "react"
+import React, { useMemo, useState } from "react"
 import { WideSlider } from "@/components/custom/wide-slider"
 import {
     FunctionRegistry,
@@ -26,6 +26,7 @@ import { CfgNode } from "@/components/micro-vm/static-analysis"
 export function LeadersAndEdgesStage({
     slots,
     functionRegistry,
+    sbpfVersion,
     formatStyle,
     setFormatStyle,
     leftBlock,
@@ -33,6 +34,7 @@ export function LeadersAndEdgesStage({
 }: {
     slots: Array<InsnRaw>
     functionRegistry: FunctionRegistry<bigint>
+    sbpfVersion: SBPFVersion
     formatStyle: FormattingStyle
     setFormatStyle: React.ComponentProps<
         typeof FormattingSelector
@@ -41,6 +43,36 @@ export function LeadersAndEdgesStage({
     rightBlock: HTMLElement
 }) {
     const [currentPc, setCurrentPc] = useState(0)
+    const { leaders, edges, changes } = useMemo(() => {
+        const leadersAcc: ReturnType<typeof recordLeadersAndEdges>["leaders"] =
+            SortedMap.new()
+        const edgesAcc: ReturnType<typeof recordLeadersAndEdges>["edges"] =
+            SortedMap.new()
+        let lastChanges: ReturnType<typeof recordLeadersAndEdges>["changes"] = {
+            edges: [],
+            leaders: [],
+        }
+        for (let pc = 0; pc <= currentPc; pc++) {
+            const { leaders, edges, changes } = recordLeadersAndEdges({
+                slots,
+                pc: BigInt(pc),
+                functionRegistry,
+                sbpfVersion,
+            })
+            leaders.inner.forEach((val, key) => {
+                SortedMap.insert(leadersAcc, { key, value: val })
+            })
+            edges.inner.forEach((val, key) => {
+                SortedMap.insert(edgesAcc, { key, value: val })
+            })
+            lastChanges = changes
+        }
+        return {
+            leaders: leadersAcc,
+            edges: edgesAcc,
+            changes: lastChanges,
+        }
+    }, [currentPc, slots, functionRegistry, sbpfVersion])
     return (
         <>
             {createPortal(
@@ -58,6 +90,20 @@ export function LeadersAndEdgesStage({
                         const labelU8Arr = functionRegistry.map.inner.get(
                             BigInt(index),
                         )?.[0]
+                        const isLeader = !!leaders.inner.get(BigInt(index))
+                        const isFreshLeader =
+                            isLeader &&
+                            changes.leaders.some(
+                                (val) => val.pc === BigInt(index),
+                            )
+
+                        const isEdge = !!edges.inner.get(BigInt(index))
+                        const isFreshEdge =
+                            isEdge &&
+                            changes.edges.some(
+                                (val) => val.pc === BigInt(index),
+                            )
+
                         return (
                             <React.Fragment key={index}>
                                 {labelU8Arr && (
@@ -69,10 +115,26 @@ export function LeadersAndEdgesStage({
                                     key={index}
                                     className={cn(
                                         "font-semibold font-mono rounded-sm pe-1 ps-4",
-                                        index === currentPc &&
-                                            "bg-foreground text-background",
                                         index === currentPc - 1 &&
                                             "bg-amber-950/10 dark:bg-amber-200/20",
+                                        {
+                                            "bg-foreground text-background":
+                                                index === currentPc,
+                                            "bg-amber-950/10 dark:bg-amber-200/20":
+                                                index === currentPc - 1,
+                                        },
+                                        isLeader &&
+                                            (index === currentPc
+                                                ? "bg-red-950 dark:bg-red-950 text-background"
+                                                : isFreshLeader
+                                                  ? "bg-red-900/50 dark:bg-red-900/50"
+                                                  : "bg-red-400/30 dark:bg-red-400/30"),
+                                        isEdge &&
+                                            (index === currentPc
+                                                ? "bg-indigo-950 dark:bg-indigo-950 text-background"
+                                                : isFreshEdge
+                                                  ? "bg-indigo-900/50 dark:bg-indigo-900/50"
+                                                  : "bg-indigo-400/30 dark:bg-indigo-400/30"),
                                     )}
                                 >
                                     {index}:{" "}
@@ -101,7 +163,7 @@ export function LeadersAndEdgesStage({
                         <div className="flex w-full flex-col items-center  gap-4 p-3">
                             <Label>
                                 Current PC:
-                                <span className="font-bold tabular-nums font-mono">
+                                <span className="font-bold tabular-nums">
                                     {currentPc}
                                 </span>
                             </Label>
