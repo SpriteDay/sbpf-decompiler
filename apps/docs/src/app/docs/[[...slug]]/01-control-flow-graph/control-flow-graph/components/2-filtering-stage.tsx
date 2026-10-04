@@ -45,7 +45,7 @@ export function FilteringStage({
             sbpfVersion,
         })
 
-        let removed: {
+        const removed: {
             leaders: Array<{ index: number; pc: bigint; reason: string }>
             edgeDestinations: Array<{
                 edgePc: bigint
@@ -60,33 +60,18 @@ export function FilteringStage({
         }
 
         for (let i = 0; i <= currentStep; i++) {
-            const lastRemoved: {
-                leaders: Array<{ index: number; pc: bigint; reason: string }>
-                edgeDestinations: Array<{
-                    edgePc: bigint
-                    destinationPc: bigint
-                    reason: string
-                }>
-                functions: Array<{ index: number; pc: bigint; reason: string }>
-            } = {
-                leaders: [],
-                edgeDestinations: [],
-                functions: [],
-            }
-
             let index = i
             if (index < leaders.inner.size) {
                 const [leaderPc, _leader] = Array.from(leaders.inner)[index]
                 if (
                     !slots.entries().some(([pc, _]) => leaderPc === BigInt(pc))
                 ) {
-                    lastRemoved.leaders.push({
+                    removed.leaders.push({
                         index,
                         pc: leaderPc,
                         reason: "leader's PC is not in the program",
                     })
                 }
-                removed = lastRemoved
                 continue
             }
 
@@ -97,7 +82,7 @@ export function FilteringStage({
                     if (leaders.inner.has(destination)) {
                         return true
                     } else {
-                        lastRemoved.edgeDestinations.push({
+                        removed.edgeDestinations.push({
                             edgePc: key,
                             destinationPc: destination,
                             reason: "destination must land on a leader",
@@ -105,7 +90,6 @@ export function FilteringStage({
                         return false
                     }
                 })
-                removed = lastRemoved
                 continue
             }
 
@@ -115,15 +99,13 @@ export function FilteringStage({
                     functionRegistry.map.inner,
                 )[index]
                 if (!leaders.inner.has(functionStart)) {
-                    lastRemoved.functions.push({
+                    removed.functions.push({
                         index,
                         pc: functionStart,
                         reason: "function must start at a leader",
                     })
                 }
             }
-
-            removed = lastRemoved
         }
 
         return {
@@ -306,62 +288,70 @@ export function FilteringStage({
                                     )
                                 )}
                             </p>
-                        </div>
-                        <div>
-                            <span>Events:</span>
-                            {removed.leaders.length === 0 &&
-                            removed.edgeDestinations.length === 0 &&
-                            removed.functions.length === 0 ? (
-                                <span className="text-foreground/50">
-                                    {" <Empty>"}
-                                </span>
-                            ) : (
-                                <div className="flex flex-col gap-1">
-                                    {Array.from(removed.leaders).map(
-                                        ({ pc, reason }) => {
-                                            return (
-                                                <span key={`leader-${pc}`}>
-                                                    <span className="text-red-950 dark:text-red-400 font-semibold">
-                                                        - Leader at PC {pc} was
-                                                        removed
+                            <div>
+                                <span>Events:</span>
+                                {removed.leaders.length === 0 &&
+                                removed.edgeDestinations.length === 0 &&
+                                removed.functions.length === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {" <Empty>"}
+                                    </span>
+                                ) : (
+                                    <div className="flex flex-col gap-1">
+                                        {Array.from(removed.leaders).map(
+                                            ({ pc, reason }) => {
+                                                return (
+                                                    <span key={`leader-${pc}`}>
+                                                        <span className="text-red-950 dark:text-red-400 font-semibold">
+                                                            - Leader at PC {pc}{" "}
+                                                            was removed
+                                                        </span>
+                                                        : {reason}
                                                     </span>
-                                                    : {reason}
-                                                </span>
-                                            )
-                                        },
-                                    )}
-                                    {Array.from(removed.edgeDestinations).map(
-                                        ({ edgePc, destinationPc, reason }) => {
-                                            return (
-                                                <span
-                                                    key={`${edgePc}${destinationPc}`}
-                                                >
-                                                    <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
-                                                        - Destination PC{" "}
-                                                        {destinationPc} was
-                                                        removed from the edge PC{" "}
-                                                        {edgePc}
+                                                )
+                                            },
+                                        )}
+                                        {Array.from(
+                                            removed.edgeDestinations,
+                                        ).map(
+                                            ({
+                                                edgePc,
+                                                destinationPc,
+                                                reason,
+                                            }) => {
+                                                return (
+                                                    <span
+                                                        key={`${edgePc}${destinationPc}`}
+                                                    >
+                                                        <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
+                                                            - Destination PC{" "}
+                                                            {destinationPc} was
+                                                            removed from the
+                                                            edge PC {edgePc}
+                                                        </span>
+                                                        : {reason}
                                                     </span>
-                                                    : {reason}
-                                                </span>
-                                            )
-                                        },
-                                    )}
-                                    {Array.from(removed.functions).map(
-                                        ({ pc, reason }) => {
-                                            return (
-                                                <span key={`function-${pc}`}>
-                                                    <span className="text-green-950 dark:text-green-400 font-semibold">
-                                                        - Function at PC {pc}{" "}
-                                                        was removed
+                                                )
+                                            },
+                                        )}
+                                        {Array.from(removed.functions).map(
+                                            ({ pc, reason }) => {
+                                                return (
+                                                    <span
+                                                        key={`function-${pc}`}
+                                                    >
+                                                        <span className="text-green-950 dark:text-green-400 font-semibold">
+                                                            - Function at PC{" "}
+                                                            {pc} was removed
+                                                        </span>
+                                                        : {reason}
                                                     </span>
-                                                    : {reason}
-                                                </span>
-                                            )
-                                        },
-                                    )}
-                                </div>
-                            )}
+                                                )
+                                            },
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
