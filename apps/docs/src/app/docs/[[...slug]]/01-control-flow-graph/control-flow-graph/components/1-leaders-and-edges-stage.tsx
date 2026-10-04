@@ -11,9 +11,13 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { createPortal } from "react-dom"
-import { u8ArrayToString } from "@/components/micro-vm/dependencies/utils"
+import {
+    SortedMap,
+    u8ArrayToString,
+} from "@/components/micro-vm/dependencies/utils"
 import { FormattingSelector } from "./formatting-selector"
 import { formatInstruction, FormattingStyle } from "../../../components/utils"
+import { CfgNode } from "@/components/micro-vm/static-analysis"
 
 export function LeadersAndEdgesStage({
     slots,
@@ -130,4 +134,47 @@ export function LeadersAndEdgesStage({
             )}
         </>
     )
+}
+
+function recordLeadersAndEdges({
+    slots,
+    pc,
+    functionRegistry,
+}: {
+    slots: Array<InsnRaw>
+    pc: bigint
+    functionRegistry: FunctionRegistry<bigint>
+}): {
+    leaders: SortedMap<CfgNode>
+    edges: SortedMap<{
+        opc: bigint
+        destinations: Array<bigint>
+    }>
+    log: string
+} {
+    const leaders = SortedMap.new<CfgNode>()
+    const edges = SortedMap.new<{
+        opc: bigint
+        destinations: Array<bigint>
+    }>()
+    let log = ""
+
+    if (pc === 0n) {
+        SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
+        log += `New leader at PC${pc}: First instruction is always a leader\n`
+    }
+
+    const registryEntry = functionRegistry.map.inner.get(pc)
+    if (registryEntry) {
+        if (!leaders.inner.get(pc)) {
+            SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
+            log += `New leader at PC${pc}: found registry function with the label "${u8ArrayToString(registryEntry[0])}"`
+        }
+    }
+
+    return {
+        leaders,
+        edges,
+        log,
+    }
 }
