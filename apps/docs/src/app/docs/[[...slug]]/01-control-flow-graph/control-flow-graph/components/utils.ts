@@ -82,12 +82,14 @@ function recordLeadersAndEdges({
                 },
             )
             let targetPc: bigint | undefined = undefined
+            const callRegistryEntry =
+                functionRegistry.map.inner.get(callImmTargetPc)
             // In case a function was found in the registr and it's not V3+ syscall
             if (
-                registryEntry &&
+                callRegistryEntry &&
                 !(SBPFFeatures.staticSyscalls(sbpfVersion) && insn.src === 0n)
             ) {
-                targetPc = registryEntry[1]
+                targetPc = callRegistryEntry[1]
             }
             if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
                 // According to SIMD-0178 src === 1 is for internal callsm and src === 0 for static syscalls
@@ -141,12 +143,16 @@ function recordLeadersAndEdges({
                     value: CfgNode.default(),
                 })
                 changes.leaders.push({
-                    pc,
+                    pc: pc + 1n,
                     reason: "start of a basic block at the fall-through PC",
                 })
             }
 
             const destinations = [pc + 1n]
+            SortedMap.insert(edges, {
+                key: pc,
+                value: { opc: insn.opc, destinations },
+            })
             changes.edges.push({
                 pc,
                 reason: "calls end basic blocks",
@@ -165,6 +171,10 @@ function recordLeadersAndEdges({
                     reason: "instruction after exit starts new block",
                 })
             }
+            SortedMap.insert(edges, {
+                key: pc,
+                value: { opc: insn.opc, destinations: [] },
+            })
             changes.edges.push({
                 pc,
                 reason: "exit ends basic block",
@@ -329,13 +339,18 @@ export function getFilteredLeadersAndEdges({
         if (index < edges.inner.size) {
             const [key, edge] = Array.from(edges.inner)[index]
             edge.destinations = edge.destinations.filter((destination) => {
-                if (leaders.inner.has(destination)) {
+                if (
+                    !removed.leaders.some(
+                        (removedLeader) => destination === removedLeader.pc,
+                    ) &&
+                    leaders.inner.has(destination)
+                ) {
                     return true
                 } else {
                     removed.edgeDestinations.push({
                         edgePc: key,
                         destinationPc: destination,
-                        reason: "destination must land on a leader",
+                        reason: "clean up after a leaders filtering",
                     })
                     return false
                 }
@@ -348,11 +363,16 @@ export function getFilteredLeadersAndEdges({
             const [functionStart, _] = Array.from(functionRegistry.map.inner)[
                 index
             ]
-            if (!leaders.inner.has(functionStart)) {
+            if (
+                removed.leaders.some(
+                    (removedLeader) => functionStart === removedLeader.pc,
+                ) ||
+                !leaders.inner.has(functionStart)
+            ) {
                 removed.functions.push({
                     index,
                     pc: functionStart,
-                    reason: "function must start at a leader",
+                    reason: "clean up after a leaders filtering",
                 })
             }
         }
