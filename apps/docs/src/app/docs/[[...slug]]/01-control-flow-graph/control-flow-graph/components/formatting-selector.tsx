@@ -13,7 +13,7 @@ export function FormattingSelector({
             variant="outline"
             value={[formatStyle]}
             onValueChange={(value) =>
-                setFormatStyle(value[0] as FormattingStyle)
+                value[0]! && setFormatStyle(value[0] as FormattingStyle)
             }
         >
             <ToggleGroupItem value="NASM" size="sm">

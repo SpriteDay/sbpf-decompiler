@@ -127,7 +127,9 @@ export function ControlFlowGraph() {
                     <ToggleGroup
                         variant="outline"
                         value={[stage]}
-                        onValueChange={(value) => setStage(value[0] as Stage)}
+                        onValueChange={(value) =>
+                            value[0] && setStage(value[0] as Stage)
+                        }
                     >
                         {Object.keys(StagesMap).map((key) => {
                             return (
