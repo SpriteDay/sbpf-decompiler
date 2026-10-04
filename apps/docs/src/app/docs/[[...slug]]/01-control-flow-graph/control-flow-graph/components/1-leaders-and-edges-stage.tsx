@@ -282,6 +282,68 @@ function recordLeadersAndEdges({
                 reason: "calls end basic blocks",
                 destinations,
             })
+            break
+        }
+        case OpCodes.EXIT: {
+            if (leaders.inner.get(pc + 1n)) {
+                SortedMap.insert(leaders, {
+                    key: pc + 1n,
+                    value: CfgNode.default(),
+                })
+                changes.leaders.push({
+                    pc,
+                    reason: "instruction after exit starts new block",
+                })
+            }
+            changes.edges.push({
+                pc,
+                reason: "exit ends basic block",
+                destinations: [],
+            })
+            break
+        }
+        case OpCodes.JA:
+        case OpCodes.JEQ64_IMM:
+        case OpCodes.JGT64_IMM: {
+            const targetPc = BigInt.asUintN(
+                64,
+                BigInt.asIntN(64, pc) + 1n + BigInt.asIntN(64, insn.off),
+            )
+            if (!leaders.inner.get(pc + 1n)) {
+                SortedMap.insert(leaders, {
+                    key: pc + 1n,
+                    value: CfgNode.default(),
+                })
+                changes.leaders.push({
+                    pc,
+                    reason: "fall-through of jump marks start of basic block",
+                })
+            }
+            if (!leaders.inner.get(targetPc)) {
+                SortedMap.insert(leaders, {
+                    key: targetPc,
+                    value: CfgNode.default(),
+                })
+                changes.leaders.push({
+                    pc,
+                    reason: "target of jump marks start of a basic block",
+                })
+            }
+            const destinations =
+                insn.opc === OpCodes.JA ? [targetPc] : [pc + 1n, targetPc]
+            SortedMap.insert(edges, {
+                key: pc,
+                value: {
+                    opc: insn.opc,
+                    destinations,
+                },
+            })
+            changes.edges.push({
+                pc,
+                reason: "jumps mark the end of a basic block",
+                destinations,
+            })
+            break
         }
     }
 
