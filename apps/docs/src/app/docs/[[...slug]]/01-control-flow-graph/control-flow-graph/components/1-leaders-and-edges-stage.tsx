@@ -22,6 +22,7 @@ import {
 import { FormattingSelector } from "./formatting-selector"
 import { formatInstruction, FormattingStyle } from "../../../components/utils"
 import { CfgNode } from "@/components/micro-vm/static-analysis"
+import { Badge } from "@/components/ui/badge"
 
 export function LeadersAndEdgesStage({
     slots,
@@ -123,13 +124,13 @@ export function LeadersAndEdgesStage({
                                             (index === currentPc
                                                 ? "bg-red-950 dark:bg-red-950 text-background"
                                                 : isFreshLeader
-                                                  ? "bg-red-700/40 dark:bg-red-700/40"
+                                                  ? "bg-red-800/40 dark:bg-red-800/40"
                                                   : "bg-red-800/15 dark:bg-red-800/15"),
                                         isEdge &&
                                             (index === currentPc
                                                 ? "bg-indigo-950 dark:bg-indigo-950 text-background"
                                                 : isFreshEdge
-                                                  ? "bg-indigo-700/40 dark:bg-indigo-700/40"
+                                                  ? "bg-indigo-800/40 dark:bg-indigo-700/40"
                                                   : "bg-indigo-800/15 dark:bg-indigo-800/15"),
                                     )}
                                 >
@@ -149,7 +150,67 @@ export function LeadersAndEdgesStage({
             {createPortal(
                 <ResizablePanelGroup key={1} orientation="vertical">
                     <ResizablePanel defaultSize="70%">
-                        <div className="flex justify-center p-2 flex-col gap-1"></div>
+                        <div className="flex justify-center p-2 flex-col gap-1">
+                            <p>
+                                Leaders:{" "}
+                                {leaders.inner.size === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {"<Empty>"}
+                                    </span>
+                                ) : (
+                                    Array.from(leaders.inner).map(([pc, _]) => {
+                                        const isFreshLeader =
+                                            changes.leaders.some(
+                                                (val) => val.pc === BigInt(pc),
+                                            )
+                                        return (
+                                            <Badge
+                                                className={cn(
+                                                    "text-foreground me-1 mb-1",
+                                                    pc === BigInt(currentPc)
+                                                        ? "bg-red-950 dark:bg-red-950 text-background"
+                                                        : isFreshLeader
+                                                          ? "bg-red-800/40 dark:bg-red-800/40"
+                                                          : "bg-red-800/15 dark:bg-red-800/15",
+                                                )}
+                                                key={pc}
+                                            >
+                                                {pc}
+                                            </Badge>
+                                        )
+                                    })
+                                )}
+                            </p>
+                            <p>
+                                Edges:{" "}
+                                {edges.inner.size === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {"<Empty>"}
+                                    </span>
+                                ) : (
+                                    Array.from(edges.inner).map(([pc, _]) => {
+                                        const isFreshEdge = changes.edges.some(
+                                            (val) => val.pc === BigInt(pc),
+                                        )
+                                        return (
+                                            <Badge
+                                                className={cn(
+                                                    "text-foreground me-1 mb-1",
+                                                    pc === BigInt(currentPc)
+                                                        ? "bg-indigo-950 dark:bg-indigo-950 text-background"
+                                                        : isFreshEdge
+                                                          ? "bg-indigo-800/40 dark:bg-indigo-700/40"
+                                                          : "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                                )}
+                                                key={pc}
+                                            >
+                                                {pc}
+                                            </Badge>
+                                        )
+                                    })
+                                )}
+                            </p>
+                        </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel
