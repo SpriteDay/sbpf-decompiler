@@ -48,10 +48,7 @@ export function LeadersAndEdgesStage({
     return (
         <>
             {createPortal(
-                <div
-                    key={0}
-                    className="relative flex justify-center p-2 flex-col gap-1 "
-                >
+                <div className="relative flex justify-center p-2 flex-col gap-1 ">
                     <div className="absolute bottom-3 right-3 z-10 opacity-90">
                         <FormattingSelector
                             formatStyle={formatStyle}
