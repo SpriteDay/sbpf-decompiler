@@ -9,7 +9,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { useEffect, useRef, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { WideSlider } from "@/components/custom/wide-slider"
 import { Executable } from "@/components/micro-vm/elf"
 import {
@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { createPortal } from "react-dom"
+import { u8ArrayToString } from "@/components/micro-vm/dependencies/utils"
 
 // biome-ignore format: keep all instructions in one line
 const Slots: Array<Insn> = [
@@ -56,14 +57,27 @@ const Slots: Array<Insn> = [
     { ptr: 18n, opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
 ]
 
+const functionRegistry = FunctionRegistry.default<bigint>()
+FunctionRegistry.registerFunction(functionRegistry, {
+    key: 0n,
+    name: "entrypoint",
+    value: 0n,
+})
+FunctionRegistry.registerFunction(functionRegistry, {
+    key: 14n,
+    name: "mul",
+    value: 14n,
+})
+
 const StagesMap = {
-    "Leaders & Edges": RecordingLeadersAndEdgesStage,
-    "Filtering": FilteringStage,
-    "Basic Blocks": DefiningBlockBoundariesStage,
+    "1. Leaders & Edges": RecordingLeadersAndEdgesStage,
+    "2. Filtering": FilteringStage,
+    "3. Basic Blocks": DefiningBlockBoundariesStage,
 } as const satisfies Record<
     string,
     (props: {
         slots: Array<InsnRaw>
+        functionRegistry: FunctionRegistry<bigint>
         formatStyle: FormattingStyle
         setFormatStyle: React.ComponentProps<
             typeof FormattingSelector
@@ -77,7 +91,7 @@ type Stage = keyof typeof StagesMap
 
 export function ControlFlowGraph() {
     // Layout related
-    const [stage, setStage] = useState<Stage>("Leaders & Edges")
+    const [stage, setStage] = useState<Stage>("1. Leaders & Edges")
     const [leftBlock, setLeftBlock] = useState<HTMLElement | null>(null)
     const [rightBlock, setRightBlock] = useState<HTMLElement | null>(null)
     const ActiveStage = StagesMap[stage]
@@ -91,13 +105,6 @@ export function ControlFlowGraph() {
 
         const sbpfVersion: SBPFVersion = "V3"
         const loader = BuiltinProgram.new({ config })
-
-        const functionRegistry = FunctionRegistry.default<bigint>()
-        FunctionRegistry.registerFunction(functionRegistry, {
-            key: 14n,
-            name: "mul",
-            value: 14n,
-        })
 
         const executable: Executable = {
             slots: Slots,
@@ -122,15 +129,13 @@ export function ControlFlowGraph() {
                         value={[stage]}
                         onValueChange={(value) => setStage(value[0] as Stage)}
                     >
-                        <ToggleGroupItem value="Leaders & Edges">
-                            Leaders & Edges
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="Filtering">
-                            Filtering
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="Basic Blocks">
-                            Basic Blocks
-                        </ToggleGroupItem>
+                        {Object.keys(StagesMap).map((key) => {
+                            return (
+                                <ToggleGroupItem key={key} value={key}>
+                                    {key}
+                                </ToggleGroupItem>
+                            )
+                        })}
                     </ToggleGroup>
                 </div>
                 <ResizablePanelGroup
@@ -148,6 +153,7 @@ export function ControlFlowGraph() {
                 {leftBlock && rightBlock && (
                     <ActiveStage
                         slots={Slots}
+                        functionRegistry={functionRegistry}
                         formatStyle={formatStyle}
                         setFormatStyle={setFormatStyle}
                         leftBlock={leftBlock}
@@ -174,20 +180,26 @@ function FormattingSelector({
                 setFormatStyle(value[0] as FormattingStyle)
             }
         >
-            <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
-            <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
+            <ToggleGroupItem value="NASM" size="sm">
+                NASM
+            </ToggleGroupItem>
+            <ToggleGroupItem value="LLVM" size="sm">
+                LLVM
+            </ToggleGroupItem>
         </ToggleGroup>
     )
 }
 
 function RecordingLeadersAndEdgesStage({
     slots,
+    functionRegistry,
     formatStyle,
     setFormatStyle,
     leftBlock,
     rightBlock,
 }: {
     slots: Array<InsnRaw>
+    functionRegistry: FunctionRegistry<bigint>
     formatStyle: FormattingStyle
     setFormatStyle: React.ComponentProps<
         typeof FormattingSelector
@@ -203,31 +215,41 @@ function RecordingLeadersAndEdgesStage({
                     key={0}
                     className="relative flex justify-center p-2 flex-col gap-1 "
                 >
-                    <div className="absolute top-3 right-3 z-10 opacity-90">
+                    <div className="absolute bottom-3 right-3 z-10 opacity-90">
                         <FormattingSelector
                             formatStyle={formatStyle}
                             setFormatStyle={setFormatStyle}
                         />
                     </div>
                     {Slots.map((_, index) => {
+                        const labelU8Arr = functionRegistry.map.inner.get(
+                            BigInt(index),
+                        )?.[0]
                         return (
-                            <span
-                                key={index}
-                                className={cn(
-                                    "font-semibold font-mono rounded-sm px-1",
-                                    index === currentPc &&
-                                        "bg-foreground text-background",
-                                    index === currentPc - 1 &&
-                                        "bg-amber-950/10 dark:bg-amber-200/20",
+                            <React.Fragment key={index}>
+                                {labelU8Arr && (
+                                    <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
+                                        {u8ArrayToString(labelU8Arr)}:
+                                    </span>
                                 )}
-                            >
-                                {index}:{" "}
-                                {formatInstruction({
-                                    prog: Slots,
-                                    pc: BigInt(index),
-                                    style: formatStyle,
-                                })}
-                            </span>
+                                <span
+                                    key={index}
+                                    className={cn(
+                                        "font-semibold font-mono rounded-sm pe-1 ps-4",
+                                        index === currentPc &&
+                                            "bg-foreground text-background",
+                                        index === currentPc - 1 &&
+                                            "bg-amber-950/10 dark:bg-amber-200/20",
+                                    )}
+                                >
+                                    {index}:{" "}
+                                    {formatInstruction({
+                                        prog: Slots,
+                                        pc: BigInt(index),
+                                        style: formatStyle,
+                                    })}
+                                </span>
+                            </React.Fragment>
                         )
                     })}
                 </div>,
@@ -287,12 +309,14 @@ function RecordingLeadersAndEdgesStage({
 
 function FilteringStage({
     slots,
+    functionRegistry,
     formatStyle,
     setFormatStyle,
     leftBlock,
     rightBlock,
 }: {
     slots: Array<InsnRaw>
+    functionRegistry: FunctionRegistry<bigint>
     formatStyle: FormattingStyle
     setFormatStyle: React.ComponentProps<
         typeof FormattingSelector
@@ -322,12 +346,14 @@ function FilteringStage({
 
 function DefiningBlockBoundariesStage({
     slots,
+    functionRegistry,
     formatStyle,
     setFormatStyle,
     leftBlock,
     rightBlock,
 }: {
     slots: Array<InsnRaw>
+    functionRegistry: FunctionRegistry<bigint>
     formatStyle: FormattingStyle
     setFormatStyle: React.ComponentProps<
         typeof FormattingSelector
