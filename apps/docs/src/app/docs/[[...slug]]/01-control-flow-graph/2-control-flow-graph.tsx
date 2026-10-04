@@ -28,6 +28,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { createPortal } from "react-dom"
 
 // biome-ignore format: keep all instructions in one line
 const Slots: Array<Insn> = [
@@ -64,13 +65,20 @@ const StagesMap = {
     (props: {
         slots: Array<InsnRaw>
         formatStyle: FomrattingStyle
-    }) => React.ReactNode[]
+        leftBlock: HTMLElement
+        rightBlock: HTMLElement
+    }) => React.ReactNode
 >
 
 type Stage = keyof typeof StagesMap
 
 export function ControlFlowGraph() {
+    // Layout related
     const [stage, setStage] = useState<Stage>("Leaders & Edges")
+    const [leftBlock, setLeftBlock] = useState<HTMLElement | null>(null)
+    const [rightBlock, setRightBlock] = useState<HTMLElement | null>(null)
+    const ActiveStage = StagesMap[stage]
+
     const [formatStyle, setFormatStyle] = useState<FomrattingStyle>("NASM")
 
     // Debug static analysis implementation
@@ -137,13 +145,21 @@ export function ControlFlowGraph() {
                     className="relative rounded-lg border"
                 >
                     <ResizablePanel defaultSize="50%">
-                        {StagesMap[stage]({ slots: Slots, formatStyle })[0]}
+                        <div ref={setLeftBlock} className="h-full" />
                     </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel defaultSize="50%">
-                        {StagesMap[stage]({ slots: Slots, formatStyle })[1]}
+                        <div ref={setRightBlock} className="h-full" />
                     </ResizablePanel>
                 </ResizablePanelGroup>
+                {leftBlock && rightBlock && (
+                    <ActiveStage
+                        slots={Slots}
+                        formatStyle={formatStyle}
+                        leftBlock={leftBlock}
+                        rightBlock={rightBlock}
+                    />
+                )}
             </CardContent>
         </Card>
     )
@@ -152,9 +168,13 @@ export function ControlFlowGraph() {
 function RecordingLeadersAndEdgesStage({
     slots,
     formatStyle,
+    leftBlock,
+    rightBlock,
 }: {
     slots: Array<InsnRaw>
     formatStyle: FomrattingStyle
+    leftBlock: HTMLElement
+    rightBlock: HTMLElement
 }) {
     const [currentPc, setCurrentPc] = useState(0)
     const prevPc = useRef(-1)
@@ -164,92 +184,149 @@ function RecordingLeadersAndEdgesStage({
             return newPc
         })
     }
-    return [
-        <div key={0} className="flex justify-center p-2 flex-col gap-1 ">
-            {/* eslint-disable-next-line react-hooks/refs */}
-            {Slots.map((_, index) => {
-                return (
-                    <span
-                        key={index}
-                        className={cn(
-                            "font-semibold font-mono rounded-sm px-1",
-                            index === currentPc &&
-                                "bg-foreground text-background",
-                            index === prevPc.current &&
-                                "bg-amber-950/10 dark:bg-amber-200/20",
-                        )}
-                    >
-                        {index}:{" "}
-                        {formatInstruction({
-                            prog: Slots,
-                            pc: BigInt(index),
-                            style: formatStyle,
-                        })}
-                    </span>
-                )
-            })}
-        </div>,
-        <ResizablePanelGroup key={1} orientation="vertical">
-            <ResizablePanel defaultSize="75%">
-                <div className="flex justify-center p-2 flex-col gap-1"></div>
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize="25%">
-                <div className="flex w-full flex-col items-center gap-4">
-                    <Label>
-                        Current PC:
-                        <span className="font-bold tabular-nums font-mono">
-                            {currentPc}
-                        </span>
-                    </Label>
-                    <WideSlider
-                        value={[currentPc]}
-                        onValueChange={(value) => {
-                            updateCurrentPc(value as number)
-                        }}
-                        min={0}
-                        max={slots.length}
-                        step={1}
-                        className="mx-auto w-full max-w-lg"
-                    />
-                    <div className="w-full flex justify-center items-center gap-4">
-                        <Button
-                            className="w-[10ch]"
-                            disabled={currentPc === 0}
-                            onClick={() => updateCurrentPc(currentPc - 1)}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            className="w-[10ch]"
-                            disabled={currentPc === slots.length - 1}
-                            onClick={() => updateCurrentPc(currentPc + 1)}
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
-            </ResizablePanel>
-        </ResizablePanelGroup>,
-    ]
+    return (
+        <>
+            {createPortal(
+                <div
+                    key={0}
+                    className="flex justify-center p-2 flex-col gap-1 "
+                >
+                    {/* eslint-disable-next-line react-hooks/refs */}
+                    {Slots.map((_, index) => {
+                        return (
+                            <span
+                                key={index}
+                                className={cn(
+                                    "font-semibold font-mono rounded-sm px-1",
+                                    index === currentPc &&
+                                        "bg-foreground text-background",
+                                    index === prevPc.current &&
+                                        "bg-amber-950/10 dark:bg-amber-200/20",
+                                )}
+                            >
+                                {index}:{" "}
+                                {formatInstruction({
+                                    prog: Slots,
+                                    pc: BigInt(index),
+                                    style: formatStyle,
+                                })}
+                            </span>
+                        )
+                    })}
+                </div>,
+                leftBlock,
+            )}
+            {createPortal(
+                <ResizablePanelGroup key={1} orientation="vertical">
+                    <ResizablePanel defaultSize="75%">
+                        <div className="flex justify-center p-2 flex-col gap-1"></div>
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel defaultSize="25%">
+                        <div className="flex w-full flex-col items-center gap-4">
+                            <Label>
+                                Current PC:
+                                <span className="font-bold tabular-nums font-mono">
+                                    {currentPc}
+                                </span>
+                            </Label>
+                            <WideSlider
+                                value={[currentPc]}
+                                onValueChange={(value) => {
+                                    updateCurrentPc(value as number)
+                                }}
+                                min={0}
+                                max={slots.length}
+                                step={1}
+                                className="mx-auto w-full max-w-lg"
+                            />
+                            <div className="w-full flex justify-center items-center gap-4">
+                                <Button
+                                    className="w-[10ch]"
+                                    disabled={currentPc === 0}
+                                    onClick={() =>
+                                        updateCurrentPc(currentPc - 1)
+                                    }
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    className="w-[10ch]"
+                                    disabled={currentPc === slots.length - 1}
+                                    onClick={() =>
+                                        updateCurrentPc(currentPc + 1)
+                                    }
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>,
+                rightBlock,
+            )}
+        </>
+    )
 }
 
 function FilteringStage({
     slots,
     formatStyle,
+    leftBlock,
+    rightBlock,
 }: {
     slots: Array<InsnRaw>
     formatStyle: FomrattingStyle
+    leftBlock: HTMLElement
+    rightBlock: HTMLElement
 }) {
-    return [null, null]
+    return (
+        <>
+            {createPortal(
+                <div
+                    key={0}
+                    className="flex justify-center p-2 flex-col gap-1 "
+                ></div>,
+                leftBlock,
+            )}
+            {createPortal(
+                <ResizablePanelGroup
+                    key={1}
+                    orientation="vertical"
+                ></ResizablePanelGroup>,
+                rightBlock,
+            )}
+        </>
+    )
 }
 
 function DefiningBlockBoundariesStage({
     slots,
     formatStyle,
+    leftBlock,
+    rightBlock,
 }: {
     slots: Array<InsnRaw>
     formatStyle: FomrattingStyle
+    leftBlock: HTMLElement
+    rightBlock: HTMLElement
 }) {
-    return [null, null]
+    return (
+        <>
+            {createPortal(
+                <div
+                    key={0}
+                    className="flex justify-center p-2 flex-col gap-1 "
+                ></div>,
+                leftBlock,
+            )}
+            {createPortal(
+                <ResizablePanelGroup
+                    key={1}
+                    orientation="vertical"
+                ></ResizablePanelGroup>,
+                rightBlock,
+            )}
+        </>
+    )
 }
