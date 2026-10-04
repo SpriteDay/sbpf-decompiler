@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/resizable"
 import { createPortal } from "react-dom"
 import { FormattingSelector } from "../components/formatting-selector"
-import { accumulateLeadersAndEdges } from "./utils"
+import { getFilteredLeadersAndEdges } from "./utils"
 import { cn } from "@/lib/utils"
 import { u8ArrayToString } from "@/components/micro-vm/dependencies/utils"
 import { Badge } from "@/components/ui/badge"
@@ -38,85 +38,12 @@ export function FilteringStage({
 }) {
     const [currentStep, setCurrentStep] = useState(0)
     const { leaders, edges, removed } = useMemo(() => {
-        const { leaders, edges } = accumulateLeadersAndEdges({
+        return getFilteredLeadersAndEdges({
             slots,
-            endPc: BigInt(slots.length - 1),
+            currentStep,
             functionRegistry,
             sbpfVersion,
         })
-
-        const removed: {
-            leaders: Array<{ index: number; pc: bigint; reason: string }>
-            edgeDestinations: Array<{
-                edgePc: bigint
-                destinationPc: bigint
-                reason: string
-            }>
-            functions: Array<{ index: number; pc: bigint; reason: string }>
-        } = {
-            leaders: [],
-            edgeDestinations: [],
-            functions: [],
-        }
-
-        for (let i = 0; i <= currentStep; i++) {
-            let index = i
-            if (index < leaders.inner.size) {
-                const [leaderPc, _leader] = Array.from(leaders.inner)[index]
-                if (
-                    !slots.entries().some(([pc, _]) => leaderPc === BigInt(pc))
-                ) {
-                    removed.leaders.push({
-                        index,
-                        pc: leaderPc,
-                        reason: "leader's PC is not in the program",
-                    })
-                }
-                continue
-            }
-
-            index -= leaders.inner.size
-            if (index < edges.inner.size) {
-                const [key, edge] = Array.from(edges.inner)[index]
-                edge.destinations = edge.destinations.filter((destination) => {
-                    if (leaders.inner.has(destination)) {
-                        return true
-                    } else {
-                        removed.edgeDestinations.push({
-                            edgePc: key,
-                            destinationPc: destination,
-                            reason: "destination must land on a leader",
-                        })
-                        return false
-                    }
-                })
-                continue
-            }
-
-            index -= edges.inner.size
-            if (index < functionRegistry.map.inner.size) {
-                const [functionStart, _] = Array.from(
-                    functionRegistry.map.inner,
-                )[index]
-                if (!leaders.inner.has(functionStart)) {
-                    removed.functions.push({
-                        index,
-                        pc: functionStart,
-                        reason: "function must start at a leader",
-                    })
-                }
-            }
-        }
-
-        return {
-            ...accumulateLeadersAndEdges({
-                slots,
-                endPc: BigInt(slots.length - 1),
-                functionRegistry,
-                sbpfVersion,
-            }),
-            removed,
-        }
     }, [slots, functionRegistry, sbpfVersion, currentStep])
 
     const maxStep =
