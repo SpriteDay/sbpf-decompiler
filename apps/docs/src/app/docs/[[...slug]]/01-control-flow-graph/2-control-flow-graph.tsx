@@ -194,13 +194,6 @@ function RecordingLeadersAndEdgesStage({
     rightBlock: HTMLElement
 }) {
     const [currentPc, setCurrentPc] = useState(0)
-    const prevPc = useRef(-1)
-    const updateCurrentPc = (newPc: number) => {
-        setCurrentPc((prev) => {
-            prevPc.current = prev
-            return newPc
-        })
-    }
     return (
         <>
             {createPortal(
@@ -214,7 +207,7 @@ function RecordingLeadersAndEdgesStage({
                             setFormatStyle={setFormatStyle}
                         />
                     </div>
-                    {/* eslint-disable-next-line react-hooks/refs */}
+                    {}
                     {Slots.map((_, index) => {
                         return (
                             <span
@@ -223,7 +216,7 @@ function RecordingLeadersAndEdgesStage({
                                     "font-semibold font-mono rounded-sm px-1",
                                     index === currentPc &&
                                         "bg-foreground text-background",
-                                    index === prevPc.current &&
+                                    index === currentPc - 1 &&
                                         "bg-amber-950/10 dark:bg-amber-200/20",
                                 )}
                             >
@@ -256,7 +249,7 @@ function RecordingLeadersAndEdgesStage({
                             <WideSlider
                                 value={[currentPc]}
                                 onValueChange={(value) => {
-                                    updateCurrentPc(value as number)
+                                    setCurrentPc(value as number)
                                 }}
                                 min={0}
                                 max={slots.length}
@@ -267,18 +260,14 @@ function RecordingLeadersAndEdgesStage({
                                 <Button
                                     className="w-[10ch]"
                                     disabled={currentPc === 0}
-                                    onClick={() =>
-                                        updateCurrentPc(currentPc - 1)
-                                    }
+                                    onClick={() => setCurrentPc(currentPc - 1)}
                                 >
                                     Previous
                                 </Button>
                                 <Button
                                     className="w-[10ch]"
                                     disabled={currentPc === slots.length - 1}
-                                    onClick={() =>
-                                        updateCurrentPc(currentPc + 1)
-                                    }
+                                    onClick={() => setCurrentPc(currentPc + 1)}
                                 >
                                     Next
                                 </Button>
