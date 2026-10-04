@@ -157,6 +157,39 @@ export function FilteringStage({
                                     )
                                 )}
                             </p>
+                            <p>
+                                Functions:{" "}
+                                {edges.inner.size === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {"<Empty>"}
+                                    </span>
+                                ) : (
+                                    Array.from(functionRegistry.map.inner).map(
+                                        ([key, [nameU8, _]], index) => {
+                                            const label =
+                                                u8ArrayToString(nameU8)
+                                            const isActive =
+                                                index +
+                                                    leaders.inner.size +
+                                                    edges.inner.size ===
+                                                currentStep
+                                            return (
+                                                <Badge
+                                                    className={cn(
+                                                        "text-foreground me-1 mb-1",
+                                                        isActive
+                                                            ? "bg-green-950 dark:bg-green-700 text-background dark:text-foreground"
+                                                            : "bg-green-800/15 dark:bg-green-500/15",
+                                                    )}
+                                                    key={key}
+                                                >
+                                                    {label}
+                                                </Badge>
+                                            )
+                                        },
+                                    )
+                                )}
+                            </p>
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
@@ -166,7 +199,7 @@ export function FilteringStage({
                     >
                         <div className="flex w-full flex-col items-center  gap-4 p-3">
                             <Label>
-                                Current PC:
+                                Current step:
                                 <span className="font-bold tabular-nums">
                                     {currentStep}
                                 </span>
