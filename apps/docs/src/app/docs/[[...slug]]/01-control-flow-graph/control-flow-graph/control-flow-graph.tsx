@@ -117,7 +117,7 @@ export function ControlFlowGraph() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Static Analysis Debug</CardTitle>
+                <CardTitle>Control Flow Graph Building</CardTitle>
                 <CardDescription>
                     Use selector to pick and inspect the stage of building a CFG
                 </CardDescription>

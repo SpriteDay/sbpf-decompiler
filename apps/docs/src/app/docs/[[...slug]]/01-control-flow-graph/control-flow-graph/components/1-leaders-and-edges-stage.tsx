@@ -113,22 +113,20 @@ export function LeadersAndEdgesStage({
                                     className={cn(
                                         "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
                                         index === currentPc - 1 &&
-                                            "bg-amber-950/10 dark:bg-amber-200/20",
+                                            "bg-amber-950/10 dark:bg-amber-200/5",
                                         {
                                             "bg-foreground text-background":
                                                 index === currentPc,
-                                            "bg-amber-950/10 dark:bg-amber-200/20":
-                                                index === currentPc - 1,
                                         },
                                         isLeader &&
                                             (index === currentPc
-                                                ? "bg-red-950 dark:bg-red-950 text-background"
+                                                ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
                                                 : isFreshLeader
                                                   ? "bg-red-800/40 dark:bg-red-800/40"
                                                   : "bg-red-800/15 dark:bg-red-800/15"),
                                         isEdge &&
                                             (index === currentPc
-                                                ? "bg-indigo-950 dark:bg-indigo-950 text-background"
+                                                ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
                                                 : isFreshEdge
                                                   ? "bg-indigo-800/40 dark:bg-indigo-700/40"
                                                   : "bg-indigo-800/15 dark:bg-indigo-800/15"),
@@ -168,10 +166,10 @@ export function LeadersAndEdgesStage({
                                                 className={cn(
                                                     "text-foreground me-1 mb-1",
                                                     pc === BigInt(currentPc)
-                                                        ? "bg-red-950 dark:bg-red-950 text-background"
+                                                        ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
                                                         : isFreshLeader
-                                                          ? "bg-red-800/40 dark:bg-red-800/40"
-                                                          : "bg-red-800/15 dark:bg-red-800/15",
+                                                          ? "bg-red-800/40 dark:bg-red-400/50"
+                                                          : "bg-red-800/15 dark:bg-red-500/15",
                                                 )}
                                                 key={pc}
                                             >
@@ -197,10 +195,10 @@ export function LeadersAndEdgesStage({
                                                 className={cn(
                                                     "text-foreground me-1 mb-1",
                                                     pc === BigInt(currentPc)
-                                                        ? "bg-indigo-950 dark:bg-indigo-950 text-background"
+                                                        ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
                                                         : isFreshEdge
-                                                          ? "bg-indigo-800/40 dark:bg-indigo-700/40"
-                                                          : "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                                          ? "bg-indigo-800/40 dark:bg-indigo-400/50"
+                                                          : "bg-indigo-800/15 dark:bg-indigo-500/15",
                                                 )}
                                                 key={pc}
                                             >
@@ -210,6 +208,44 @@ export function LeadersAndEdgesStage({
                                     })
                                 )}
                             </p>
+                            <div>
+                                <span>Events:</span>
+                                {changes.leaders.length === 0 &&
+                                changes.edges.length === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {" <Empty>"}
+                                    </span>
+                                ) : (
+                                    <div className="flex flex-col gap-1">
+                                        {Array.from(changes.leaders).map(
+                                            ({ pc, reason }) => {
+                                                return (
+                                                    <span key={pc}>
+                                                        <span className="text-red-950 dark:text-red-400 font-semibold">
+                                                            - PC {pc} became a
+                                                            leader
+                                                        </span>
+                                                        : {reason}
+                                                    </span>
+                                                )
+                                            },
+                                        )}
+                                        {Array.from(changes.edges).map(
+                                            ({ pc, reason }) => {
+                                                return (
+                                                    <span key={pc}>
+                                                        <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
+                                                            - PC {pc} became an
+                                                            edge
+                                                        </span>
+                                                        : {reason}
+                                                    </span>
+                                                )
+                                            },
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
@@ -305,7 +341,7 @@ function recordLeadersAndEdges({
         SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
         changes.leaders.push({
             pc,
-            reason: "instruction is always a leader",
+            reason: "instruction 0 is always a leader",
         })
     }
 
