@@ -1,6 +1,6 @@
 "use client"
 
-import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
+import { Insn, InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 import { Analysis } from "@/components/micro-vm/static-analysis"
 import {
     Card,
@@ -12,7 +12,11 @@ import {
 import { useEffect, useRef, useState } from "react"
 import { WideSlider } from "@/components/custom/wide-slider"
 import { Executable } from "@/components/micro-vm/elf"
-import { BuiltinProgram, FunctionRegistry } from "@/components/micro-vm/program"
+import {
+    BuiltinProgram,
+    FunctionRegistry,
+    SBPFVersion,
+} from "@/components/micro-vm/program"
 import { Config } from "@/components/micro-vm/vm"
 import { FomrattingStyle, formatInstruction } from "../components/utils"
 import {
@@ -25,13 +29,30 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 
-const Slots: Array<InsnRaw> = [
-    { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0x01n },
-    { opc: OpCodes.JEQ64_IMM, dst: 1n, src: 0n, off: 1n, imm: 0x01n },
-    { opc: OpCodes.LD_DW_IMM, dst: 1n, src: 0n, off: 0n, imm: 0x55667788n },
-    { opc: 0x00n, dst: 0n, src: 0n, off: 0n, imm: 0x11223344n },
-    { opc: OpCodes.ADD64_REG, dst: 1n, src: 2n, off: 0n, imm: 0x00n },
-    { opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
+// biome-ignore format: keep all instructions in one line
+const Slots: Array<Insn> = [
+    // factorial(4)
+    // entrypoint:
+    { ptr: 0n, opc: OpCodes.LD_DW_IMM, dst: 1n, src: 0n, off: 0n, imm: 0xffff_ffffn },
+    { ptr: 1n, opc: 0x00n, dst: 0n, src: 0n, off: 0n, imm: 0xffff_ffffn },
+    { ptr: 2n, opc: OpCodes.MOV64_IMM, dst: 7n, src: 0n, off: 0n, imm: 4n },
+    { ptr: 3n, opc: OpCodes.JGT64_IMM, dst: 7n, src: 0n, off: 9n, imm: 20n }, // 21! overflows u64
+    { ptr: 4n, opc: OpCodes.MOV64_IMM, dst: 6n, src: 0n, off: 0n, imm: 1n },
+    { ptr: 5n, opc: OpCodes.JEQ64_IMM, dst: 7n, src: 0n, off: 6n, imm: 0n },
+    { ptr: 6n, opc: OpCodes.MOV64_REG, dst: 2n, src: 7n, off: 0n, imm: 0n },
+    { ptr: 7n, opc: OpCodes.CALL_IMM, dst: 0n, src: 1n, off: 0n, imm: 5n }, // calling mul()
+    { ptr: 8n, opc: OpCodes.MOV64_REG, dst: 6n, src: 0n, off: 0n, imm: 0n },
+    { ptr: 9n, opc: OpCodes.SUB64_IMM, dst: 7n, src: 0n, off: 0n, imm: 1n },
+    { ptr: 10n, opc: OpCodes.JA, dst: 0n, src: 0n, off: -7n, imm: 0n },
+    { ptr: 11n, opc: OpCodes.MOV64_REG, dst: 0n, src: 6n, off: 0n, imm: 0n },
+    { ptr: 12n, opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
+    // mul:
+    { ptr: 13n, opc: OpCodes.MOV64_IMM, dst: 0n, src: 0n, off: 0n, imm: 0n },
+    { ptr: 14n, opc: OpCodes.JEQ64_IMM, dst: 2n, src: 0n, off: 3n, imm: 0n },
+    { ptr: 15n, opc: OpCodes.ADD64_REG, dst: 0n, src: 1n, off: 0n, imm: 0n },
+    { ptr: 16n, opc: OpCodes.SUB64_IMM, dst: 2n, src: 0n, off: 0n, imm: 1n },
+    { ptr: 17n, opc: OpCodes.JA, dst: 0n, src: 0n, off: -4n, imm: 0n },
+    { ptr: 18n, opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0x00n },
 ]
 
 const StagesMap = {
@@ -56,12 +77,21 @@ export function ControlFlowGraph() {
     useEffect(() => {
         const config = Config.default()
         config.enableRegisterTracing = true
+
+        const sbpfVersion: SBPFVersion = "V3"
         const loader = BuiltinProgram.new({ config })
+
+        const functionRegistry = FunctionRegistry.default<bigint>()
+        FunctionRegistry.registerFunction(functionRegistry, {
+            key: 14n,
+            name: "mul",
+            value: 14n,
+        })
 
         const executable: Executable = {
             slots: Slots,
-            sbpfVersion: "V3",
-            functionRegistry: FunctionRegistry.default(),
+            sbpfVersion,
+            functionRegistry,
             loader,
         }
         const _analysis = Analysis.fromExecutable({ executable })
