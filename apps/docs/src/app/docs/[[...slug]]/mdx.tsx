@@ -6,7 +6,7 @@ import { LddwProgram } from "./02-instructions-reading/2-lddw-program"
 import { BitRepresentation } from "./03-bit-extension/1-bit-representation"
 import { BitExtension } from "./03-bit-extension/2-bit-extension"
 import { MaskOperations } from "./03-bit-extension/3-mask-operations"
-import { ControlFlowGraph } from "./01-control-flow-graph/2-control-flow-graph"
+import { ControlFlowGraph } from "./01-control-flow-graph/control-flow-graph/control-flow-graph"
 
 export function getMDXComponents(components?: MDXComponents) {
     return {
