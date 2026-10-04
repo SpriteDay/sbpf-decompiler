@@ -45,34 +45,12 @@ export function LeadersAndEdgesStage({
 }) {
     const [currentPc, setCurrentPc] = useState(0)
     const { leaders, edges, changes } = useMemo(() => {
-        const leadersAcc: ReturnType<typeof recordLeadersAndEdges>["leaders"] =
-            SortedMap.new()
-        const edgesAcc: ReturnType<typeof recordLeadersAndEdges>["edges"] =
-            SortedMap.new()
-        let lastChanges: ReturnType<typeof recordLeadersAndEdges>["changes"] = {
-            edges: [],
-            leaders: [],
-        }
-        for (let pc = 0; pc <= currentPc; pc++) {
-            const { leaders, edges, changes } = recordLeadersAndEdges({
-                slots,
-                pc: BigInt(pc),
-                functionRegistry,
-                sbpfVersion,
-            })
-            leaders.inner.forEach((val, key) => {
-                SortedMap.insert(leadersAcc, { key, value: val })
-            })
-            edges.inner.forEach((val, key) => {
-                SortedMap.insert(edgesAcc, { key, value: val })
-            })
-            lastChanges = changes
-        }
-        return {
-            leaders: leadersAcc,
-            edges: edgesAcc,
-            changes: lastChanges,
-        }
+        return accumulateLeadersAndEdges({
+            slots,
+            endPc: BigInt(currentPc),
+            functionRegistry,
+            sbpfVersion,
+        })
     }, [currentPc, slots, functionRegistry, sbpfVersion])
     return (
         <>
@@ -506,5 +484,60 @@ function recordLeadersAndEdges({
         leaders,
         edges,
         changes,
+    }
+}
+
+function accumulateLeadersAndEdges({
+    slots,
+    endPc,
+    functionRegistry,
+    sbpfVersion,
+}: {
+    slots: Array<InsnRaw>
+    endPc: bigint
+    functionRegistry: FunctionRegistry<bigint>
+    sbpfVersion: SBPFVersion
+}): {
+    leaders: SortedMap<CfgNode>
+    edges: SortedMap<{
+        opc: bigint
+        destinations: Array<bigint>
+    }>
+    changes: {
+        leaders: Array<{ pc: bigint; reason: string }>
+        edges: Array<{
+            pc: bigint
+            reason: string
+            destinations: Array<bigint>
+        }>
+    }
+} {
+    const leadersAcc: ReturnType<typeof recordLeadersAndEdges>["leaders"] =
+        SortedMap.new()
+    const edgesAcc: ReturnType<typeof recordLeadersAndEdges>["edges"] =
+        SortedMap.new()
+    let lastChanges: ReturnType<typeof recordLeadersAndEdges>["changes"] = {
+        edges: [],
+        leaders: [],
+    }
+    for (let stepPc = 0; stepPc <= endPc; stepPc++) {
+        const { leaders, edges, changes } = recordLeadersAndEdges({
+            slots,
+            pc: BigInt(stepPc),
+            functionRegistry,
+            sbpfVersion,
+        })
+        leaders.inner.forEach((val, key) => {
+            SortedMap.insert(leadersAcc, { key, value: val })
+        })
+        edges.inner.forEach((val, key) => {
+            SortedMap.insert(edgesAcc, { key, value: val })
+        })
+        lastChanges = changes
+    }
+    return {
+        leaders: leadersAcc,
+        edges: edgesAcc,
+        changes: lastChanges,
     }
 }
