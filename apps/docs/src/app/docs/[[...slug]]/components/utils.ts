@@ -110,8 +110,8 @@ export function formatInstruction({
         }
         case OpCodes.CALL_IMM: {
             formatted = {
-                "LLVM": `call 0x${imm.toString(16).padStart(32, "0")}`,
-                "NASM": `call 0x${imm.toString(16).padStart(32, "0")}`,
+                "LLVM": `call 0x${imm.toString(16)}`,
+                "NASM": `call 0x${imm.toString(16)}`,
             }
             break
         }

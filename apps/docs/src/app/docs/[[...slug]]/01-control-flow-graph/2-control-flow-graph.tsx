@@ -110,8 +110,8 @@ export function ControlFlowGraph() {
                 <CardTitle>Static Analysis Debug</CardTitle>
                 <CardDescription></CardDescription>
             </CardHeader>
-            <CardContent className="relative flex justify-center py-2">
-                <div className="absolute top-2 right-2 z-10 opacity-90">
+            <CardContent className="flex flex-col justify-center py-2">
+                <div className="w-full flex justify-center">
                     <ToggleGroup
                         variant="outline"
                         value={[stage]}
@@ -128,22 +128,22 @@ export function ControlFlowGraph() {
                         </ToggleGroupItem>
                     </ToggleGroup>
                 </div>
-                <div className="w-full flex justify-center">
-                    <ToggleGroup
-                        variant="outline"
-                        value={[formatStyle]}
-                        onValueChange={(value) =>
-                            setFormatStyle(value[0] as FomrattingStyle)
-                        }
-                    >
-                        <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
-                        <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
-                    </ToggleGroup>
-                </div>
                 <ResizablePanelGroup
                     orientation="horizontal"
                     className="relative rounded-lg border"
                 >
+                    <div className="absolute top-2 right-2 z-10 opacity-90">
+                        <ToggleGroup
+                            variant="outline"
+                            value={[formatStyle]}
+                            onValueChange={(value) =>
+                                setFormatStyle(value[0] as FomrattingStyle)
+                            }
+                        >
+                            <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
+                            <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
+                        </ToggleGroup>
+                    </div>
                     <ResizablePanel defaultSize="50%">
                         <div ref={setLeftBlock} className="h-full" />
                     </ResizablePanel>
