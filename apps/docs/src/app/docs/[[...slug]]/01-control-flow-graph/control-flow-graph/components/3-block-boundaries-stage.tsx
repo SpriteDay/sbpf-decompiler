@@ -1,5 +1,5 @@
 import { InsnRaw } from "@/components/micro-vm/ebpf"
-import React, { useState } from "react"
+import React, { useMemo, useState } from "react"
 import { FunctionRegistry, SBPFVersion } from "@/components/micro-vm/program"
 import { FormattingStyle } from "../../../components/utils"
 import { ResizablePanelGroup } from "@/components/ui/resizable"
@@ -7,6 +7,7 @@ import { createPortal } from "react-dom"
 import { FormattingSelector } from "../components/formatting-selector"
 import { CfgNode } from "@/components/micro-vm/static-analysis"
 import { SortedMap } from "@/components/micro-vm/dependencies/utils"
+import { getFilteredLeadersAndEdges } from "./utils"
 
 export function BlockBoundariesStage({
     slots,
@@ -27,7 +28,43 @@ export function BlockBoundariesStage({
     leftBlock: HTMLElement
     rightBlock: HTMLElement
 }) {
-    const [instructionIndex, setInstructionIndex] = useState(0)
+    const [currentStep, setCurrentStep] = useState(0)
+    const { cfgNodes, instructionIndex, cfgEdgeIndex, cfgNodeIndex } =
+        useMemo(() => {
+            const {
+                leaders,
+                edges: cfgEdges,
+                removed,
+            } = getFilteredLeadersAndEdges({
+                slots,
+                currentStep,
+                functionRegistry,
+                sbpfVersion,
+            })
+            const cfgNodes = SortedMap.new<CfgNode>()
+            cfgNodes.inner = new Map(
+                [...leaders.inner].filter(([pc, _cfgNode]) =>
+                    removed.leaders.some(
+                        ({ pc: removedPc }) => pc === removedPc,
+                    ),
+                ),
+            )
+            const functions = FunctionRegistry.default<bigint>()
+            functions.map.inner = new Map(
+                [...functionRegistry.map.inner].filter(([pc, _]) =>
+                    removed.functions.some(
+                        ({ pc: removedPc }) => pc === removedPc,
+                    ),
+                ),
+            )
+            return defineInstructionsAndDestinations({
+                maxStep: currentStep,
+                cfgNodes,
+                cfgEdges,
+                slots,
+                functions,
+            })
+        }, [currentStep, sbpfVersion, slots, functionRegistry])
     return (
         <>
             {createPortal(
@@ -48,30 +85,23 @@ export function BlockBoundariesStage({
     )
 }
 
-function instructionsAndDestinationsPass({
-    step,
-    instructionIndex,
-    incrementInstructionIndex,
-    cfgNodeIndex,
-    cfgEdgeIndex,
-    incrementCfgEdgeIndex,
+function defineInstructionsAndDestinations({
+    maxStep,
     cfgNodes,
     cfgEdges,
     slots,
     functions,
 }: {
-    step: number
-    instructionIndex: number
-    incrementInstructionIndex: () => void
-    cfgNodeIndex: number
-    cfgEdgeIndex: number
-    incrementCfgEdgeIndex: () => void
+    maxStep: number
     cfgNodes: SortedMap<CfgNode>
-    cfgEdges: SortedMap<{ pc: bigint; destinations: Array<bigint> }>
+    cfgEdges: SortedMap<{ opc: bigint; destinations: Array<bigint> }>
     slots: Array<InsnRaw>
     functions: FunctionRegistry<bigint>
 }): {
     cfgNodes: SortedMap<CfgNode>
+    instructionIndex: number
+    cfgNodeIndex: number
+    cfgEdgeIndex: number
     lastEvent:
         | {
               type: "instruction"
@@ -92,90 +122,120 @@ function instructionsAndDestinationsPass({
           }
         | null
 } {
+    let currentStep = 0
+
+    let instructionIndex = 0
+    let cfgNodeIndex = 0
+    let cfgEdgeIndex = 0
     // Each index change decrements step counter, so it is possible to control the loop progress
-    let remainingSteps = step
     let lastEvent: ReturnType<
-        typeof instructionsAndDestinationsPass
+        typeof defineInstructionsAndDestinations
     >["lastEvent"] = null
-    const [cfgNodeStart, cfgNode] = Array.from(cfgNodes.inner)[cfgNodeIndex]
-    const cfgNodeEnd =
-        cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
-            ? // Next basic block start -1, if there is a next block
-              Array.from(cfgNodes.inner.entries())[cfgNodeIndex + 1][0] - 1n
-            : // Or the last instruction in the program, if there is no next cfg node
-              slots.length - 1
 
-    cfgNode.instructions[0] = instructionIndex
-    while (instructionIndex < slots.length) {
-        if (instructionIndex <= cfgNodeEnd) {
-            incrementInstructionIndex()
-            instructionIndex++
+    while (currentStep <= maxStep) {
+        const [cfgNodeStart, cfgNode] = Array.from(cfgNodes.inner)[cfgNodeIndex]
+        const cfgNodeEnd =
+            cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
+                ? // Next basic block start -1, if there is a next block
+                  Array.from(cfgNodes.inner.entries())[cfgNodeIndex + 1][0] - 1n
+                : // Or the last instruction in the program, if there is no next cfg node
+                  slots.length - 1
 
-            // Update the end instruction index in our CFG node
-            cfgNode.instructions[1] = instructionIndex
+        cfgNode.instructions[0] = instructionIndex
+        while (instructionIndex < slots.length) {
+            if (instructionIndex <= cfgNodeEnd) {
+                instructionIndex++
 
-            lastEvent = {
-                type: "instruction",
-                index: instructionIndex,
-                cfgNodeStart,
+                // Update the end instruction index in our CFG node
+                cfgNode.instructions[1] = instructionIndex
+
+                lastEvent = {
+                    type: "instruction",
+                    index: instructionIndex,
+                    cfgNodeStart,
+                }
+
+                currentStep++
+                if (currentStep > maxStep) {
+                    return {
+                        cfgNodes,
+                        instructionIndex,
+                        cfgNodeIndex,
+                        cfgEdgeIndex,
+                        lastEvent,
+                    }
+                }
+            } else {
+                break
             }
+        }
 
-            remainingSteps -= 1
-            if (remainingSteps <= 0) {
-                return {
-                    cfgNodes,
-                    lastEvent,
+        // If there is a recorded CFG edge within our calculated CFG node boundaries
+        // we copy edge's destinations from the edge to the current CFG node and go
+        // to the next CFG node
+        if (cfgEdgeIndex < Array.from(cfgEdges.inner.entries()).length) {
+            const [nextCfgEdgePc, nextCfgEdge] = Array.from(cfgEdges.inner)[
+                cfgEdgeIndex
+            ]
+            if (nextCfgEdgePc <= cfgNodeEnd) {
+                cfgNode.destinations = [...nextCfgEdge.destinations]
+                lastEvent = {
+                    type: "destinations-edge",
+                    cfgNodeStart,
+                    sourceEdgePc: nextCfgEdgePc,
+                    destinations: nextCfgEdge.destinations,
+                }
+
+                cfgEdgeIndex++
+                currentStep++
+                if (currentStep > maxStep) {
+                    return {
+                        cfgNodes,
+                        instructionIndex,
+                        cfgNodeIndex,
+                        cfgEdgeIndex,
+                        lastEvent,
+                    }
                 }
             }
-        } else {
-            break
         }
-    }
 
-    // If there is a recorded CFG edge within our calculated CFG node boundaries
-    // we copy edge's destinations from the edge to the current CFG node and go
-    // to the next CFG node
-    if (cfgEdgeIndex < Array.from(cfgEdges.inner.entries()).length) {
-        const [nextCfgEdgePc, nextCfgEdge] = Array.from(cfgEdges.inner)[
-            cfgEdgeIndex
-        ]
-        if (nextCfgEdgePc <= cfgNodeEnd) {
-            cfgNode.destinations = [...nextCfgEdge.destinations]
-            lastEvent = {
-                type: "destinations-edge",
-                cfgNodeStart,
-                sourceEdgePc: nextCfgEdgePc,
-                destinations: nextCfgEdge.destinations,
+        if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
+            const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
+                cfgEdgeIndex + 1
+            ]
+            // If we couldn't a corresponding edge - we check whether
+            // the next cfg node is function or no, and if it's not - we specify
+            // the fall through destination to it. We keep CFG Nodes split by functions
+            // for non flatten call graph
+            if (functions.map.inner.get(nextCfgNodeStart)) {
+                cfgNode.destinations.push(nextCfgNodeStart)
+                lastEvent = {
+                    type: "destinations-fall-through",
+                    destination: nextCfgNodeStart,
+                    nextCfgNodeStart,
+                    cfgNodeStart,
+                }
             }
-
-            incrementCfgEdgeIndex()
-            cfgEdgeIndex++
-            remainingSteps -= 1
+        }
+        currentStep++
+        if (currentStep > maxStep) {
             return {
                 cfgNodes,
+                instructionIndex,
+                cfgNodeIndex,
+                cfgEdgeIndex,
                 lastEvent,
             }
         }
+        cfgNodeIndex++
     }
 
-    if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
-        const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
-            cfgEdgeIndex + 1
-        ]
-        // If we couldn't a corresponding edge - we check whether
-        // the next cfg node is function or no, and if it's not - we specify
-        // the fall through destination to it. We keep CFG Nodes split by functions
-        // for non flatten call graph
-        if (functions.map.inner.get(nextCfgNodeStart)) {
-            cfgNode.destinations.push(nextCfgNodeStart)
-            lastEvent = {
-                type: "destinations-fall-through",
-                destination: nextCfgNodeStart,
-                nextCfgNodeStart,
-                cfgNodeStart,
-            }
-        }
+    return {
+        cfgNodes,
+        instructionIndex,
+        cfgNodeIndex,
+        cfgEdgeIndex,
+        lastEvent,
     }
-
-    return { cfgNodes, lastEvent }
 }
