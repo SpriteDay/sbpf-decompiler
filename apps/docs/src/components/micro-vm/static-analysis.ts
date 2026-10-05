@@ -300,7 +300,7 @@ export const Analysis = {
                 }
 
                 // If there is a recorded CFG edge within our calculated CFG node boundaries,
-                // we copy edge's destinations from the edge to the current CFG node
+                // we copy edge's destinations from the edge to the current CFG node and continue the loop
                 if (
                     cfgEdgeIterCounter <
                     Array.from(cfgEdges.inner.entries()).length
@@ -314,8 +314,9 @@ export const Analysis = {
                         return
                     }
                 }
-                // Record a fall-through PC if we are not in the function
-                // (if we are in the function, the boundaries end at EXIT and we don't continue)
+                // If there was no CFG edge within our CFG node bounadries, then if the next cfg start is
+                // not a function (we keep CFG nodes split by function boundaries), we record fall-through
+                // destination to the next block
                 if (index + 1 < Array.from(self.cfgNodes.inner).length) {
                     const nextCfgNode = Array.from(self.cfgNodes.inner)[
                         index + 1
