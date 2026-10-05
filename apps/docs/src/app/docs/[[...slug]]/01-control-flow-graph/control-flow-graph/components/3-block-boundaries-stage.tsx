@@ -146,9 +146,9 @@ export function BlockBoundariesStage({
                         ({ owner, slots: groupSlots, startPc }, index) => (
                             <div
                                 className={cn(
-                                    "flex flex-col justify-center gap-1",
+                                    "flex flex-col justify-center gap-1 rounded-sm",
                                     typeof owner !== "undefined" &&
-                                        "bg-red-400/20",
+                                        "bg-red-600/10 dark:bg-red-400/10 border border-red-600/50 dark:border-red-400/50",
                                 )}
                                 key={index}
                             >
@@ -179,7 +179,8 @@ export function BlockBoundariesStage({
                                                 className={cn(
                                                     "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
                                                     isLeader &&
-                                                        isEdge &&
+                                                        "bg-red-800/15 dark:bg-red-800/15",
+                                                    isEdge &&
                                                         "bg-indigo-800/15 dark:bg-indigo-800/15",
                                                     isLeader &&
                                                         isEdge &&
