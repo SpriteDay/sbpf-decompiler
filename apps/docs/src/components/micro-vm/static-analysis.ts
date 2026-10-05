@@ -272,7 +272,7 @@ export const Analysis = {
             }),
         )
 
-        //
+        // Defining instruction range and destinations for each CFG node
         let instructionIndex = 0
         let cfgEdgeIterCounter = 0
         self.cfgNodes.inner
@@ -286,7 +286,8 @@ export const Analysis = {
                           ][0] - 1n
                         : // Or just the last instruction in the program
                           self.instructions[self.instructions.length - 1].ptr
-                // Writing down down the start of the CFG node
+
+                // Defining the range of instructions included in this CFG node
                 cfgNode.instructions[0] = instructionIndex
                 while (instructionIndex < self.instructions.length) {
                     if (self.instructions[instructionIndex].ptr <= cfgNodeEnd) {
@@ -297,6 +298,7 @@ export const Analysis = {
                         break
                     }
                 }
+
                 // If there is a recorded CFG edge within our calculated CFG node boundaries,
                 // we copy edge's destinations from the edge to the current CFG node
                 if (
@@ -309,11 +311,12 @@ export const Analysis = {
                     if (nextCfgEdge[0] <= cfgNodeEnd) {
                         cfgNode.destinations = [...nextCfgEdge[1][1]]
                         cfgEdgeIterCounter++
+                        return
                     }
-
-                    // Record a fall-through PC if we are not in the function
-                    // (if we are in the function, the boundaries end at EXIT and we don't continue)
-                } else if (index + 1 < Array.from(self.cfgNodes.inner).length) {
+                }
+                // Record a fall-through PC if we are not in the function
+                // (if we are in the function, the boundaries end at EXIT and we don't continue)
+                if (index + 1 < Array.from(self.cfgNodes.inner).length) {
                     const nextCfgNode = Array.from(self.cfgNodes.inner)[
                         index + 1
                     ]
