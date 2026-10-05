@@ -178,7 +178,7 @@ export function FilteringStage({
                             </p>
                             <p>
                                 Functions:{" "}
-                                {edges.inner.size === 0 ? (
+                                {functionRegistry.map.inner.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>

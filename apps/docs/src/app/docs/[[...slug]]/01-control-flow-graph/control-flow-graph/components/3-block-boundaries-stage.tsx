@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { WideSlider } from "@/components/custom/wide-slider"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export function BlockBoundariesStage({
     slots,
@@ -40,43 +41,49 @@ export function BlockBoundariesStage({
     rightBlock: HTMLElement
 }) {
     const [currentStep, setCurrentStep] = useState(0)
-    const { cfgNodes, cfgEdges, instructionIndex, cfgNodeIndex, cfgEdgeIndex } =
-        useMemo(() => {
-            const {
-                leaders,
-                edges: cfgEdges,
-                removed,
-            } = getFilteredLeadersAndEdges({
-                slots,
-                functionRegistry,
-                sbpfVersion,
-            })
-            const cfgNodes = SortedMap.new<CfgNode>()
-            cfgNodes.inner = new Map(
-                [...leaders.inner].filter(
-                    ([pc, _cfgNode]) =>
-                        !removed.leaders.some(
-                            ({ pc: removedPc }) => pc === removedPc,
-                        ),
-                ),
-            )
-            const functions = FunctionRegistry.default<bigint>()
-            functions.map.inner = new Map(
-                [...functionRegistry.map.inner].filter(
-                    ([pc, _]) =>
-                        !removed.functions.some(
-                            ({ pc: removedPc }) => pc === removedPc,
-                        ),
-                ),
-            )
-            return defineInstructionsAndDestinations({
-                maxStep: currentStep,
-                cfgNodes,
-                cfgEdges,
-                slots,
-                functions,
-            })
-        }, [currentStep, sbpfVersion, slots, functionRegistry])
+    const {
+        cfgNodes,
+        cfgEdges,
+        instructionIndex,
+        cfgNodeIndex,
+        cfgEdgeIndex,
+        lastEvent,
+    } = useMemo(() => {
+        const {
+            leaders,
+            edges: cfgEdges,
+            removed,
+        } = getFilteredLeadersAndEdges({
+            slots,
+            functionRegistry,
+            sbpfVersion,
+        })
+        const cfgNodes = SortedMap.new<CfgNode>()
+        cfgNodes.inner = new Map(
+            [...leaders.inner].filter(
+                ([pc, _cfgNode]) =>
+                    !removed.leaders.some(
+                        ({ pc: removedPc }) => pc === removedPc,
+                    ),
+            ),
+        )
+        const functions = FunctionRegistry.default<bigint>()
+        functions.map.inner = new Map(
+            [...functionRegistry.map.inner].filter(
+                ([pc, _]) =>
+                    !removed.functions.some(
+                        ({ pc: removedPc }) => pc === removedPc,
+                    ),
+            ),
+        )
+        return defineInstructionsAndDestinations({
+            maxStep: currentStep,
+            cfgNodes,
+            cfgEdges,
+            slots,
+            functions,
+        })
+    }, [currentStep, sbpfVersion, slots, functionRegistry])
 
     const maxStep = cfgNodes.inner.size + cfgEdges.inner.size + slots.length - 1
 
@@ -158,6 +165,7 @@ export function BlockBoundariesStage({
                                         functionRegistry.map.inner.get(
                                             BigInt(pc),
                                         )?.[0]
+                                    const isActive = instructionIndex === pc
                                     const isLeader = !!cfgNodes.inner.get(
                                         BigInt(pc),
                                     )
@@ -178,13 +186,21 @@ export function BlockBoundariesStage({
                                                 key={pc}
                                                 className={cn(
                                                     "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
+                                                    isActive &&
+                                                        "bg-foreground text-background",
                                                     isLeader &&
-                                                        "bg-red-800/15 dark:bg-red-800/15",
+                                                        (isActive
+                                                            ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
+                                                            : "bg-red-800/15 dark:bg-red-800/15"),
                                                     isEdge &&
-                                                        "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                                        (isActive
+                                                            ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
+                                                            : "bg-indigo-800/15 dark:bg-indigo-800/15"),
                                                     isLeader &&
                                                         isEdge &&
-                                                        "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
+                                                        (isActive
+                                                            ? "bg-linear-to-r from-red-950 dark:from-red-700 to-indigo-950 dark:to-indigo-700 text-background dark:text-foreground"
+                                                            : "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15"),
                                                 )}
                                             >
                                                 {pc}:{" "}
@@ -205,7 +221,113 @@ export function BlockBoundariesStage({
             )}
             {createPortal(
                 <ResizablePanelGroup key={1} orientation="vertical">
-                    <ResizablePanel defaultSize="70%"></ResizablePanel>
+                    <ResizablePanel defaultSize="70%">
+                        <div className="flex justify-center p-2 flex-col gap-1">
+                            <p>
+                                Leaders:{" "}
+                                {cfgNodes.inner.size === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {"<Empty>"}
+                                    </span>
+                                ) : (
+                                    Array.from(cfgNodes.inner).map(
+                                        ([pc, _], index) => {
+                                            const isActive =
+                                                index === cfgNodeIndex
+                                            return (
+                                                <Badge
+                                                    className={cn(
+                                                        "text-foreground me-1 mb-1",
+                                                        isActive
+                                                            ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
+                                                            : "bg-red-800/15 dark:bg-red-500/15",
+                                                    )}
+                                                    key={pc}
+                                                >
+                                                    {pc}
+                                                </Badge>
+                                            )
+                                        },
+                                    )
+                                )}
+                            </p>
+                            <p>
+                                Edges:{" "}
+                                {cfgEdges.inner.size === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {"<Empty>"}
+                                    </span>
+                                ) : (
+                                    Array.from(cfgEdges.inner).map(
+                                        ([pc, _], index) => {
+                                            const isActive =
+                                                index === cfgEdgeIndex
+                                            return (
+                                                <Badge
+                                                    className={cn(
+                                                        "text-foreground me-1 mb-1",
+                                                        isActive
+                                                            ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
+                                                            : "bg-indigo-800/15 dark:bg-indigo-500/15",
+                                                    )}
+                                                    key={pc}
+                                                >
+                                                    {pc}
+                                                </Badge>
+                                            )
+                                        },
+                                    )
+                                )}
+                            </p>
+                            <p>
+                                Functions:{" "}
+                                {functionRegistry.map.inner.size === 0 ? (
+                                    <span className="text-foreground/50">
+                                        {"<Empty>"}
+                                    </span>
+                                ) : (
+                                    Array.from(functionRegistry.map.inner).map(
+                                        ([key, [nameU8, _]]) => {
+                                            const label =
+                                                u8ArrayToString(nameU8)
+                                            return (
+                                                <Badge
+                                                    className={cn(
+                                                        "text-foreground me-1 mb-1",
+                                                        "bg-green-800/15 dark:bg-green-500/15",
+                                                    )}
+                                                    key={key}
+                                                >
+                                                    {label}
+                                                </Badge>
+                                            )
+                                        },
+                                    )
+                                )}
+                            </p>
+                            <div>
+                                <span>Events:</span>
+                                {!lastEvent ? (
+                                    <span className="text-foreground/50">
+                                        {" <Empty>"}
+                                    </span>
+                                ) : (
+                                    <div className="flex flex-col gap-1">
+                                        {lastEvent.type === "instruction" && (
+                                            <span>
+                                                <span className="text-red-950 dark:text-red-400 font-semibold">
+                                                    - Instruction at PC{" "}
+                                                    {lastEvent.index} was added
+                                                    to CFG #
+                                                    {lastEvent.cfgNodeIndex + 1}
+                                                </span>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel
                         defaultSize="30%"
@@ -279,19 +401,19 @@ function defineInstructionsAndDestinations({
         | {
               type: "instruction"
               index: number
-              cfgNodeStart: bigint
+              cfgNodeIndex: number
           }
         | {
               type: "destinations-edge"
               destinations: Array<bigint>
               sourceEdgePc: bigint
-              cfgNodeStart: bigint
+              cfgNodeIndex: number
           }
         | {
               type: "destinations-fall-through"
               destination: bigint
               nextCfgNodeStart: bigint
-              cfgNodeStart: bigint
+              cfgNodeIndex: number
           }
         | null
 } {
@@ -328,15 +450,13 @@ function defineInstructionsAndDestinations({
         cfgNode.instructions[0] = instructionIndex
         while (instructionIndex < slots.length) {
             if (instructionIndex <= cfgNodeEnd) {
-                instructionIndex++
-
                 // Update the end instruction index in our CFG node
-                cfgNode.instructions[1] = instructionIndex
+                cfgNode.instructions[1] = instructionIndex + 1
 
                 lastEvent = {
                     type: "instruction",
                     index: instructionIndex,
-                    cfgNodeStart,
+                    cfgNodeIndex,
                 }
 
                 currentStep++
@@ -350,6 +470,7 @@ function defineInstructionsAndDestinations({
                         lastEvent,
                     }
                 }
+                instructionIndex++
             } else {
                 break
             }
@@ -366,12 +487,11 @@ function defineInstructionsAndDestinations({
                 cfgNode.destinations = [...nextCfgEdge.destinations]
                 lastEvent = {
                     type: "destinations-edge",
-                    cfgNodeStart,
+                    cfgNodeIndex,
                     sourceEdgePc: nextCfgEdgePc,
                     destinations: nextCfgEdge.destinations,
                 }
 
-                cfgEdgeIndex++
                 currentStep++
                 if (currentStep > maxStep) {
                     return {
@@ -383,6 +503,7 @@ function defineInstructionsAndDestinations({
                         lastEvent,
                     }
                 }
+                cfgEdgeIndex++
             }
         }
 
@@ -400,7 +521,7 @@ function defineInstructionsAndDestinations({
                     type: "destinations-fall-through",
                     destination: nextCfgNodeStart,
                     nextCfgNodeStart,
-                    cfgNodeStart,
+                    cfgNodeIndex,
                 }
             }
         }
