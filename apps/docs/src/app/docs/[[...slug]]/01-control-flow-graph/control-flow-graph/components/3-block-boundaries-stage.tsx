@@ -85,8 +85,7 @@ export function BlockBoundariesStage({
         })
     }, [currentStep, sbpfVersion, slots, functionRegistry])
 
-    const maxStep =
-        cfgNodes.inner.size + +cfgEdges.inner.size + slots.length - 1
+    const maxStep = cfgNodes.inner.size + slots.length - 1
 
     const grouppedSlots = useMemo(() => {
         const ownershipMap = new Map<number, number>()
@@ -144,12 +143,12 @@ export function BlockBoundariesStage({
         <>
             {createPortal(
                 <div className="relative flex justify-center p-2 flex-col gap-1">
-                    <div className="absolute bottom-3 right-3 z-10 opacity-90">
+                    {/* <div className="absolute bottom-3 right-3 z-10 opacity-90">
                         <FormattingSelector
                             formatStyle={formatStyle}
                             setFormatStyle={setFormatStyle}
                         />
-                    </div>
+                    </div> */}
                     {grouppedSlots.map(
                         ({ owner, slots: groupSlots, startPc }, index) => (
                             <div
@@ -162,7 +161,7 @@ export function BlockBoundariesStage({
                             >
                                 {typeof owner === "number" && (
                                     <span className="absolute top-0.2 right-1 font-semibold text-red-800/80 dark:text-red-400">
-                                        {index + 1}
+                                        #{index + 1}
                                     </span>
                                 )}
                                 {groupSlots.map((_, groupPc) => {
@@ -518,34 +517,17 @@ function defineInstructionsAndDestinations({
         // If there is a recorded CFG edge within our calculated CFG node boundaries
         // we copy edge's destinations from the edge to the current CFG node and go
         // to the next CFG node
-        if (cfgEdgeIndex < Array.from(cfgEdges.inner.entries()).length) {
-            const [nextCfgEdgePc, nextCfgEdge] = Array.from(cfgEdges.inner)[
-                cfgEdgeIndex
-            ]
-            if (nextCfgEdgePc <= cfgNodeEnd) {
-                cfgNode.destinations = [...nextCfgEdge.destinations]
-                lastEvent = {
-                    type: "destinations-edge",
-                    cfgNodeIndex,
-                    sourceEdgePc: nextCfgEdgePc,
-                    destinations: nextCfgEdge.destinations,
-                }
-                cfgEdgeIndex++
-                currentStep++
-                if (currentStep > maxStep) {
-                    return {
-                        cfgNodes,
-                        cfgEdges,
-                        instructionIndex,
-                        cfgNodeIndex,
-                        cfgEdgeIndex,
-                        lastEvent,
-                    }
-                }
+        const nextCfgEdgeEntry = Array.from(cfgEdges.inner)[cfgEdgeIndex]
+        if (nextCfgEdgeEntry && nextCfgEdgeEntry[0] <= cfgNodeEnd) {
+            cfgNode.destinations = [...nextCfgEdgeEntry[1].destinations]
+            lastEvent = {
+                type: "destinations-edge",
+                cfgNodeIndex,
+                sourceEdgePc: nextCfgEdgeEntry[0],
+                destinations: nextCfgEdgeEntry[1].destinations,
             }
-        }
-
-        if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
+            cfgEdgeIndex++
+        } else if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
             const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
                 cfgNodeIndex + 1
             ]
