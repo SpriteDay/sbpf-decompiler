@@ -93,20 +93,23 @@ export function formatInstruction({
             break
         }
         case OpCodes.JA: {
-            formatted = { "LLVM": `PC += ${off}`, "NASM": `ja +${off}` }
+            formatted = {
+                "LLVM": `PC += ${off}`,
+                "NASM": `ja ${off >= 0 ? "+" : ""}${off}`,
+            }
             break
         }
         case OpCodes.JEQ64_IMM: {
             formatted = {
                 "LLVM": `PC += ${off} if r${dst} == ${imm}`,
-                "NASM": `jeq64 r${dst}, ${imm}, +${off}`,
+                "NASM": `jeq64 r${dst}, ${imm}, ${off >= 0 ? "+" : ""}${off}`,
             }
             break
         }
         case OpCodes.JGT64_IMM: {
             formatted = {
                 "LLVM": `PC += ${off} if r${dst} > ${imm}`,
-                "NASM": `jgt64 r${dst}, ${imm}, +${off}`,
+                "NASM": `jgt64 r${dst}, ${imm}, ${off >= 0 ? "+" : ""}${off}`,
             }
             break
         }
