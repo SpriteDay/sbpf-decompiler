@@ -98,6 +98,13 @@ export function LeadersAndEdgesStage({
                                                 : isFreshEdge
                                                   ? "bg-indigo-800/40 dark:bg-indigo-700/40"
                                                   : "bg-indigo-800/15 dark:bg-indigo-800/15"),
+                                        isLeader &&
+                                            isEdge &&
+                                            (index === currentPc
+                                                ? "bg-linear-to-r from-red-950 dark:from-red-700 to-indigo-950 dark:to-indigo-700 text-background dark:text-foreground"
+                                                : isFreshLeader || isFreshEdge
+                                                  ? "bg-linear-to-r from-red-800/40 dark:from-red-800/40 to-indigo-700/40 dark:to-indigo-800/40"
+                                                  : "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15"),
                                     )}
                                 >
                                     {index}:{" "}
