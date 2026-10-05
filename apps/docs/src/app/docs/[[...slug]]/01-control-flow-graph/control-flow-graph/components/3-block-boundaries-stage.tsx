@@ -49,6 +49,7 @@ export function BlockBoundariesStage({
 }
 
 function instructionsAndDestinationsPass({
+    step,
     instructionIndex,
     incrementInstructionIndex,
     cfgNodeIndex,
@@ -59,6 +60,7 @@ function instructionsAndDestinationsPass({
     slots,
     functions,
 }: {
+    step: number
     instructionIndex: number
     incrementInstructionIndex: () => void
     cfgNodeIndex: number
@@ -68,12 +70,52 @@ function instructionsAndDestinationsPass({
     cfgEdges: SortedMap<{ pc: bigint; destinations: Array<bigint> }>
     slots: Array<InsnRaw>
     functions: FunctionRegistry<bigint>
-}) {
-    const cfgNode = Array.from(cfgNodes.inner)[cfgNodeIndex]
+}): {
+    cfgNodes: SortedMap<CfgNode>
+    events: {
+        instructions: Array<{ index: number; cfgEdgeId: bigint }>
+    }
+} {
+    // Each index change decrements step counter, so it is possible to control the loop progress
+    let remainingSteps = step
+    const events: {
+        instructions: Array<{ index: number; cfgEdgeId: bigint }>
+    } = {
+        instructions: [],
+    }
+    const [cfgNodeStart, cfgNode] = Array.from(cfgNodes.inner)[cfgNodeIndex]
     const cfgNodeEnd =
         cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
             ? // Next basic block start -1, if there is a next block
               Array.from(cfgNodes.inner.entries())[cfgNodeIndex + 1][0] - 1n
             : // Or the last instruction in the program, if there is no next cfg node
               slots.length - 1
+
+    cfgNode.instructions[0] = instructionIndex
+    while (instructionIndex < slots.length) {
+        if (instructionIndex <= cfgNodeEnd) {
+            incrementInstructionIndex()
+            instructionIndex++
+
+            // Update the end instruction index in our CFG node
+            cfgNode.instructions[1] = instructionIndex
+
+            events.instructions.push({
+                index: instructionIndex,
+                cfgEdgeId: cfgNodeStart,
+            })
+
+            remainingSteps -= 1
+            if (remainingSteps <= 0) {
+                return {
+                    cfgNodes,
+                    events,
+                }
+            }
+        } else {
+            break
+        }
+    }
+
+    return { cfgNodes, events }
 }
