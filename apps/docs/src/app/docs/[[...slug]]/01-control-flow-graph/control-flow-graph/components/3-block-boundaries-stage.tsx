@@ -85,7 +85,7 @@ export function BlockBoundariesStage({
         })
     }, [currentStep, sbpfVersion, slots, functionRegistry])
 
-    const maxStep = cfgNodes.inner.size + cfgEdges.inner.size + slots.length - 1
+    const maxStep = cfgNodes.inner.size + slots.length - 1
 
     const grouppedSlots = useMemo(() => {
         const ownershipMap = new Map<number, number>()
@@ -518,31 +518,19 @@ function defineInstructionsAndDestinations({
                     sourceEdgePc: nextCfgEdgePc,
                     destinations: nextCfgEdge.destinations,
                 }
-
-                currentStep++
-                if (currentStep > maxStep) {
-                    return {
-                        cfgNodes,
-                        cfgEdges,
-                        instructionIndex,
-                        cfgNodeIndex,
-                        cfgEdgeIndex,
-                        lastEvent,
-                    }
-                }
                 cfgEdgeIndex++
             }
         }
 
         if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
             const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
-                cfgEdgeIndex + 1
+                cfgNodeIndex + 1
             ]
             // If we couldn't a corresponding edge - we check whether
             // the next cfg node is function or no, and if it's not - we specify
             // the fall through destination to it. We keep CFG Nodes split by functions
             // for non flatten call graph
-            if (functions.map.inner.get(nextCfgNodeStart)) {
+            if (!functions.map.inner.get(nextCfgNodeStart)) {
                 cfgNode.destinations.push(nextCfgNodeStart)
                 lastEvent = {
                     type: "destinations-fall-through",
@@ -563,6 +551,7 @@ function defineInstructionsAndDestinations({
                 lastEvent,
             }
         }
+        lastEvent = null
         cfgNodeIndex++
     }
 
