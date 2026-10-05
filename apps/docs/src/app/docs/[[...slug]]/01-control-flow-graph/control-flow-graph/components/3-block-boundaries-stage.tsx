@@ -53,18 +53,20 @@ export function BlockBoundariesStage({
             })
             const cfgNodes = SortedMap.new<CfgNode>()
             cfgNodes.inner = new Map(
-                [...leaders.inner].filter(([pc, _cfgNode]) =>
-                    removed.leaders.some(
-                        ({ pc: removedPc }) => pc === removedPc,
-                    ),
+                [...leaders.inner].filter(
+                    ([pc, _cfgNode]) =>
+                        !removed.leaders.some(
+                            ({ pc: removedPc }) => pc === removedPc,
+                        ),
                 ),
             )
             const functions = FunctionRegistry.default<bigint>()
             functions.map.inner = new Map(
-                [...functionRegistry.map.inner].filter(([pc, _]) =>
-                    removed.functions.some(
-                        ({ pc: removedPc }) => pc === removedPc,
-                    ),
+                [...functionRegistry.map.inner].filter(
+                    ([pc, _]) =>
+                        !removed.functions.some(
+                            ({ pc: removedPc }) => pc === removedPc,
+                        ),
                 ),
             )
             return defineInstructionsAndDestinations({
@@ -101,7 +103,7 @@ export function BlockBoundariesStage({
             startPc: number
             slots: Array<InsnRaw>
         } = {
-            owner: undefined,
+            owner: 0,
             startPc: 0,
             slots: [],
         }
