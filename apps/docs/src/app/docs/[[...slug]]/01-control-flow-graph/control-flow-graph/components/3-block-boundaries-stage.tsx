@@ -72,17 +72,25 @@ function instructionsAndDestinationsPass({
     functions: FunctionRegistry<bigint>
 }): {
     cfgNodes: SortedMap<CfgNode>
-    events: {
-        instructions: Array<{ index: number; cfgEdgeId: bigint }>
-    }
+    lastEvent:
+        | {
+              type: "instruction"
+              index: number
+              cfgNodeStart: bigint
+          }
+        | {
+              type: "destinations"
+              destinations: Array<bigint>
+              sourceEdgePc: bigint
+              cfgNodeStart: bigint
+          }
+        | null
 } {
     // Each index change decrements step counter, so it is possible to control the loop progress
     let remainingSteps = step
-    const events: {
-        instructions: Array<{ index: number; cfgEdgeId: bigint }>
-    } = {
-        instructions: [],
-    }
+    let lastEvent: ReturnType<
+        typeof instructionsAndDestinationsPass
+    >["lastEvent"] = null
     const [cfgNodeStart, cfgNode] = Array.from(cfgNodes.inner)[cfgNodeIndex]
     const cfgNodeEnd =
         cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
@@ -100,16 +108,17 @@ function instructionsAndDestinationsPass({
             // Update the end instruction index in our CFG node
             cfgNode.instructions[1] = instructionIndex
 
-            events.instructions.push({
+            lastEvent = {
+                type: "instruction",
                 index: instructionIndex,
-                cfgEdgeId: cfgNodeStart,
-            })
+                cfgNodeStart,
+            }
 
             remainingSteps -= 1
             if (remainingSteps <= 0) {
                 return {
                     cfgNodes,
-                    events,
+                    lastEvent,
                 }
             }
         } else {
@@ -117,5 +126,31 @@ function instructionsAndDestinationsPass({
         }
     }
 
-    return { cfgNodes, events }
+    // If there is a recorded CFG edge within our calculated CFG node boundaries
+    // we copy edge's destinations from the edge to the current CFG node and go
+    // to the next CFG node
+    if (cfgEdgeIndex < Array.from(cfgEdges.inner.entries()).length) {
+        const [nextCfgEdgePc, nextCfgEdge] = Array.from(cfgEdges.inner)[
+            cfgEdgeIndex
+        ]
+        if (nextCfgEdgePc <= cfgNodeEnd) {
+            cfgNode.destinations = [...nextCfgEdge.destinations]
+            lastEvent = {
+                type: "destinations",
+                cfgNodeStart,
+                sourceEdgePc: nextCfgEdgePc,
+                destinations: nextCfgEdge.destinations,
+            }
+
+            incrementCfgEdgeIndex()
+            cfgEdgeIndex++
+            remainingSteps -= 1
+            return {
+                cfgNodes,
+                lastEvent,
+            }
+        }
+    }
+
+    return { cfgNodes, lastEvent }
 }
