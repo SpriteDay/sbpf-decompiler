@@ -277,7 +277,7 @@ export const Analysis = {
         let cfgEdgeIterCounter = 0
         self.cfgNodes.inner
             .entries()
-            .forEach(([cfgNodeStart, cfgNode], index) => {
+            .forEach(([_cfgNodeStart, cfgNode], index) => {
                 const cfgNodeEnd =
                     index + 1 < Array.from(self.cfgNodes.inner).length
                         ? // Next basic block start - 1, if there is a next block
@@ -320,7 +320,8 @@ export const Analysis = {
                     const nextCfgNode = Array.from(self.cfgNodes.inner)[
                         index + 1
                     ]
-                    if (!self.functions.inner.get(cfgNodeStart)) {
+                    // If the next block is not a known function - we also record a fall-through to it
+                    if (!self.functions.inner.get(nextCfgNode[0])) {
                         cfgNode.destinations.push(nextCfgNode[0])
                     }
                 }
