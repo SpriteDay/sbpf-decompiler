@@ -328,6 +328,28 @@ export function BlockBoundariesStage({
                                                 </span>
                                             </span>
                                         )}
+                                        {lastEvent.type ===
+                                            "destinations-edge" && (
+                                            <span>
+                                                <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
+                                                    - Destinations from edge{" "}
+                                                    {lastEvent.sourceEdgePc} was
+                                                    added to CFG #
+                                                    {lastEvent.cfgNodeIndex + 1}
+                                                </span>
+                                            </span>
+                                        )}
+                                        {lastEvent.type ===
+                                            "destinations-fall-through" && (
+                                            <span>
+                                                <span className="text-indigo-950 dark:text-indigo-400 font-semibold">
+                                                    - Fall-through destination
+                                                    PC {lastEvent.destination}{" "}
+                                                    was added to CFG #
+                                                    {lastEvent.cfgNodeIndex + 1}
+                                                </span>
+                                            </span>
+                                        )}
                                     </div>
                                 )}
                             </div>
