@@ -79,9 +79,15 @@ function instructionsAndDestinationsPass({
               cfgNodeStart: bigint
           }
         | {
-              type: "destinations"
+              type: "destinations-edge"
               destinations: Array<bigint>
               sourceEdgePc: bigint
+              cfgNodeStart: bigint
+          }
+        | {
+              type: "destinations-fall-through"
+              destination: bigint
+              nextCfgNodeStart: bigint
               cfgNodeStart: bigint
           }
         | null
@@ -136,7 +142,7 @@ function instructionsAndDestinationsPass({
         if (nextCfgEdgePc <= cfgNodeEnd) {
             cfgNode.destinations = [...nextCfgEdge.destinations]
             lastEvent = {
-                type: "destinations",
+                type: "destinations-edge",
                 cfgNodeStart,
                 sourceEdgePc: nextCfgEdgePc,
                 destinations: nextCfgEdge.destinations,
@@ -148,6 +154,25 @@ function instructionsAndDestinationsPass({
             return {
                 cfgNodes,
                 lastEvent,
+            }
+        }
+    }
+
+    if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
+        const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
+            cfgEdgeIndex + 1
+        ]
+        // If we couldn't a corresponding edge - we check whether
+        // the next cfg node is function or no, and if it's not - we specify
+        // the fall through destination to it. We keep CFG Nodes split by functions
+        // for non flatten call graph
+        if (functions.map.inner.get(nextCfgNodeStart)) {
+            cfgNode.destinations.push(nextCfgNodeStart)
+            lastEvent = {
+                type: "destinations-fall-through",
+                destination: nextCfgNodeStart,
+                nextCfgNodeStart,
+                cfgNodeStart,
             }
         }
     }
