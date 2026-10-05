@@ -85,7 +85,8 @@ export function BlockBoundariesStage({
         })
     }, [currentStep, sbpfVersion, slots, functionRegistry])
 
-    const maxStep = cfgNodes.inner.size + slots.length - 1
+    const maxStep =
+        cfgNodes.inner.size + +cfgEdges.inner.size + slots.length - 1
 
     const grouppedSlots = useMemo(() => {
         const ownershipMap = new Map<number, number>()
@@ -236,9 +237,11 @@ export function BlockBoundariesStage({
                                     </span>
                                 ) : (
                                     Array.from(cfgNodes.inner).map(
-                                        ([pc, _], index) => {
+                                        ([pc, cfgNode], index) => {
                                             const isActive =
                                                 index === cfgNodeIndex
+                                            const passedCfgNode =
+                                                index <= cfgNodeIndex
                                             return (
                                                 <Badge
                                                     className={cn(
@@ -250,6 +253,15 @@ export function BlockBoundariesStage({
                                                     key={pc}
                                                 >
                                                     {pc}
+                                                    {passedCfgNode && (
+                                                        <span>
+                                                            {"-> "}[
+                                                            {cfgNode.destinations.join(
+                                                                "|",
+                                                            )}
+                                                            ]
+                                                        </span>
+                                                    )}
                                                 </Badge>
                                             )
                                         },
@@ -519,6 +531,17 @@ function defineInstructionsAndDestinations({
                     destinations: nextCfgEdge.destinations,
                 }
                 cfgEdgeIndex++
+                currentStep++
+                if (currentStep > maxStep) {
+                    return {
+                        cfgNodes,
+                        cfgEdges,
+                        instructionIndex,
+                        cfgNodeIndex,
+                        cfgEdgeIndex,
+                        lastEvent,
+                    }
+                }
             }
         }
 
