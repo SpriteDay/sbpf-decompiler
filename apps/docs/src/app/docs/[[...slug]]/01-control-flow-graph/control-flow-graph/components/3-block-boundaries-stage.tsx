@@ -65,13 +65,99 @@ export function BlockBoundariesStage({
                 functions,
             })
         }, [currentStep, sbpfVersion, slots, functionRegistry])
+
+    const grouppedSlots = useMemo(() => {
+        const ownershipMap = new Map<number, number>()
+
+        Array.from(cfgNodes.inner).forEach(([_, cfgNode], cfgNodeIndex) => {
+            for (
+                let i = cfgNode.instructions[0];
+                i < cfgNode.instructions[1];
+                i++
+            ) {
+                ownershipMap.set(i, cfgNodeIndex)
+            }
+        })
+
+        const groups: Array<{
+            owner: number | undefined
+            slots: Array<InsnRaw>
+        }> = []
+        let currentGroup: Array<InsnRaw> = []
+        let lastOwner: number | undefined = undefined
+
+        slots.forEach((slot, pc) => {
+            const owner = ownershipMap.get(pc)
+
+            const wasOwnerChanged = owner !== lastOwner
+            if (wasOwnerChanged && currentGroup.length > 0) {
+                groups.push({ owner, slots: currentGroup })
+                currentGroup = []
+            }
+
+            currentGroup.push(slot)
+            lastOwner = owner
+        })
+
+        if (currentGroup.length > 0) {
+            groups.push({ owner: lastOwner, slots: currentGroup })
+        }
+
+        return groups
+    }, [slots, cfgNodes])
     return (
         <>
             {createPortal(
-                <div
-                    key={0}
-                    className="flex justify-center p-2 flex-col gap-1 "
-                ></div>,
+                <div className="relative flex justify-center p-2 flex-col gap-1 ">
+                    <div className="absolute bottom-3 right-3 z-10 opacity-90">
+                        <FormattingSelector
+                            formatStyle={formatStyle}
+                            setFormatStyle={setFormatStyle}
+                        />
+                    </div>
+                    {slots.map((_, index) => {
+                        const labelU8Arr = functionRegistry.map.inner.get(
+                            BigInt(index),
+                        )?.[0]
+                        const isLeader = !!leaders.inner.get(BigInt(index))
+                        const isEdge = !!edges.inner.get(BigInt(index))
+                        const isRemoved =
+                            isLeader &&
+                            removed.leaders.some(
+                                (val) => val.pc === BigInt(index),
+                            )
+                        return (
+                            <React.Fragment key={index}>
+                                {labelU8Arr && (
+                                    <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
+                                        {u8ArrayToString(labelU8Arr)}:
+                                    </span>
+                                )}
+                                <span
+                                    key={index}
+                                    className={cn(
+                                        "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
+                                        isLeader &&
+                                            !isRemoved &&
+                                            "bg-red-800/15 dark:bg-red-800/15",
+                                        isEdge &&
+                                            "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                        isLeader &&
+                                            isEdge &&
+                                            "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
+                                    )}
+                                >
+                                    {index}:{" "}
+                                    {formatInstruction({
+                                        prog: slots,
+                                        pc: BigInt(index),
+                                        style: formatStyle,
+                                    })}
+                                </span>
+                            </React.Fragment>
+                        )
+                    })}
+                </div>,
                 leftBlock,
             )}
             {createPortal(
