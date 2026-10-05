@@ -153,12 +153,17 @@ export function BlockBoundariesStage({
                         ({ owner, slots: groupSlots, startPc }, index) => (
                             <div
                                 className={cn(
-                                    "flex flex-col justify-center gap-1 rounded-sm",
+                                    "relative flex flex-col justify-center gap-1 rounded-sm",
                                     typeof owner !== "undefined" &&
                                         "bg-red-600/10 dark:bg-red-400/10 border border-red-600/50 dark:border-red-400/50",
                                 )}
                                 key={index}
                             >
+                                {typeof owner === "number" && (
+                                    <span className="absolute top-0.2 right-1 font-semibold text-red-800/80 dark:text-red-400">
+                                        {index + 1}
+                                    </span>
+                                )}
                                 {groupSlots.map((_, groupPc) => {
                                     const pc = startPc + groupPc
                                     const labelU8Arr =
@@ -439,7 +444,7 @@ function defineInstructionsAndDestinations({
                 lastEvent,
             }
         }
-        const [cfgNodeStart, cfgNode] = entry
+        const [_cfgNodeStart, cfgNode] = entry
         const cfgNodeEnd =
             cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
                 ? // Next basic block start -1, if there is a next block
