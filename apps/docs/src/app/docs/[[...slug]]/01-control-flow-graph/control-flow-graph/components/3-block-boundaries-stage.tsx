@@ -1,13 +1,17 @@
 import { InsnRaw } from "@/components/micro-vm/ebpf"
 import React, { useMemo, useState } from "react"
 import { FunctionRegistry, SBPFVersion } from "@/components/micro-vm/program"
-import { FormattingStyle } from "../../../components/utils"
+import { formatInstruction, FormattingStyle } from "../../../components/utils"
 import { ResizablePanelGroup } from "@/components/ui/resizable"
 import { createPortal } from "react-dom"
 import { FormattingSelector } from "../components/formatting-selector"
 import { CfgNode } from "@/components/micro-vm/static-analysis"
-import { SortedMap } from "@/components/micro-vm/dependencies/utils"
+import {
+    SortedMap,
+    u8ArrayToString,
+} from "@/components/micro-vm/dependencies/utils"
 import { getFilteredLeadersAndEdges } from "./utils"
+import { cn } from "@/lib/utils"
 
 export function BlockBoundariesStage({
     slots,
@@ -29,7 +33,7 @@ export function BlockBoundariesStage({
     rightBlock: HTMLElement
 }) {
     const [currentStep, setCurrentStep] = useState(0)
-    const { cfgNodes, instructionIndex, cfgEdgeIndex, cfgNodeIndex } =
+    const { cfgNodes, cfgEdges, instructionIndex, cfgNodeIndex, cfgEdgeIndex } =
         useMemo(() => {
             const {
                 leaders,
@@ -108,55 +112,63 @@ export function BlockBoundariesStage({
     return (
         <>
             {createPortal(
-                <div className="relative flex justify-center p-2 flex-col gap-1 ">
+                <div className="relative flex justify-center p-2 flex-col gap-1">
                     <div className="absolute bottom-3 right-3 z-10 opacity-90">
                         <FormattingSelector
                             formatStyle={formatStyle}
                             setFormatStyle={setFormatStyle}
                         />
                     </div>
-                    {slots.map((_, index) => {
-                        const labelU8Arr = functionRegistry.map.inner.get(
-                            BigInt(index),
-                        )?.[0]
-                        const isLeader = !!leaders.inner.get(BigInt(index))
-                        const isEdge = !!edges.inner.get(BigInt(index))
-                        const isRemoved =
-                            isLeader &&
-                            removed.leaders.some(
-                                (val) => val.pc === BigInt(index),
-                            )
-                        return (
-                            <React.Fragment key={index}>
-                                {labelU8Arr && (
-                                    <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
-                                        {u8ArrayToString(labelU8Arr)}:
-                                    </span>
-                                )}
-                                <span
-                                    key={index}
-                                    className={cn(
-                                        "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
-                                        isLeader &&
-                                            !isRemoved &&
-                                            "bg-red-800/15 dark:bg-red-800/15",
-                                        isEdge &&
-                                            "bg-indigo-800/15 dark:bg-indigo-800/15",
-                                        isLeader &&
-                                            isEdge &&
-                                            "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
-                                    )}
-                                >
-                                    {index}:{" "}
-                                    {formatInstruction({
-                                        prog: slots,
-                                        pc: BigInt(index),
-                                        style: formatStyle,
-                                    })}
-                                </span>
-                            </React.Fragment>
-                        )
-                    })}
+                    {grouppedSlots.map(({ owner, slots }, index) => (
+                        <div
+                            className={cn(
+                                "flex flex-col justify-center gap-1",
+                                typeof owner !== "undefined" && "bg-red-400/20",
+                            )}
+                            key={index}
+                        >
+                            {slots.map((_, index) => {
+                                const labelU8Arr =
+                                    functionRegistry.map.inner.get(
+                                        BigInt(index),
+                                    )?.[0]
+                                const isLeader = !!cfgNodes.inner.get(
+                                    BigInt(index),
+                                )
+                                const isEdge = !!cfgEdges.inner.get(
+                                    BigInt(index),
+                                )
+                                return (
+                                    <React.Fragment key={index}>
+                                        {labelU8Arr && (
+                                            <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
+                                                {u8ArrayToString(labelU8Arr)}:
+                                            </span>
+                                        )}
+                                        <span
+                                            key={index}
+                                            className={cn(
+                                                "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
+                                                isLeader &&
+                                                    isEdge &&
+                                                    "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                                isLeader &&
+                                                    isEdge &&
+                                                    "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
+                                            )}
+                                        >
+                                            {index}:{" "}
+                                            {formatInstruction({
+                                                prog: slots,
+                                                pc: BigInt(index),
+                                                style: formatStyle,
+                                            })}
+                                        </span>
+                                    </React.Fragment>
+                                )
+                            })}
+                        </div>
+                    ))}
                 </div>,
                 leftBlock,
             )}
@@ -185,6 +197,7 @@ function defineInstructionsAndDestinations({
     functions: FunctionRegistry<bigint>
 }): {
     cfgNodes: SortedMap<CfgNode>
+    cfgEdges: SortedMap<{ opc: bigint; destinations: Array<bigint> }>
     instructionIndex: number
     cfgNodeIndex: number
     cfgEdgeIndex: number
@@ -245,6 +258,7 @@ function defineInstructionsAndDestinations({
                 if (currentStep > maxStep) {
                     return {
                         cfgNodes,
+                        cfgEdges,
                         instructionIndex,
                         cfgNodeIndex,
                         cfgEdgeIndex,
@@ -277,6 +291,7 @@ function defineInstructionsAndDestinations({
                 if (currentStep > maxStep) {
                     return {
                         cfgNodes,
+                        cfgEdges,
                         instructionIndex,
                         cfgNodeIndex,
                         cfgEdgeIndex,
@@ -308,6 +323,7 @@ function defineInstructionsAndDestinations({
         if (currentStep > maxStep) {
             return {
                 cfgNodes,
+                cfgEdges,
                 instructionIndex,
                 cfgNodeIndex,
                 cfgEdgeIndex,
@@ -319,6 +335,7 @@ function defineInstructionsAndDestinations({
 
     return {
         cfgNodes,
+        cfgEdges,
         instructionIndex,
         cfgNodeIndex,
         cfgEdgeIndex,
