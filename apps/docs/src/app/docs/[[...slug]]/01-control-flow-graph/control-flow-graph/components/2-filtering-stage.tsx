@@ -88,6 +88,9 @@ export function FilteringStage({
                                             "bg-red-800/15 dark:bg-red-800/15",
                                         isEdge &&
                                             "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                        isLeader &&
+                                            isEdge &&
+                                            "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
                                     )}
                                 >
                                     {index}:{" "}
