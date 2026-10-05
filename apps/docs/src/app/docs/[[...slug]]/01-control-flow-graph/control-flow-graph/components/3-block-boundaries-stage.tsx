@@ -2,7 +2,11 @@ import { InsnRaw } from "@/components/micro-vm/ebpf"
 import React, { useMemo, useState } from "react"
 import { FunctionRegistry, SBPFVersion } from "@/components/micro-vm/program"
 import { formatInstruction, FormattingStyle } from "../../../components/utils"
-import { ResizablePanelGroup } from "@/components/ui/resizable"
+import {
+    ResizableHandle,
+    ResizablePanel,
+    ResizablePanelGroup,
+} from "@/components/ui/resizable"
 import { createPortal } from "react-dom"
 import { FormattingSelector } from "../components/formatting-selector"
 import { CfgNode } from "@/components/micro-vm/static-analysis"
@@ -12,6 +16,9 @@ import {
 } from "@/components/micro-vm/dependencies/utils"
 import { getFilteredLeadersAndEdges } from "./utils"
 import { cn } from "@/lib/utils"
+import { Label } from "@/components/ui/label"
+import { WideSlider } from "@/components/custom/wide-slider"
+import { Button } from "@/components/ui/button"
 
 export function BlockBoundariesStage({
     slots,
@@ -41,7 +48,6 @@ export function BlockBoundariesStage({
                 removed,
             } = getFilteredLeadersAndEdges({
                 slots,
-                currentStep,
                 functionRegistry,
                 sbpfVersion,
             })
@@ -70,6 +76,8 @@ export function BlockBoundariesStage({
             })
         }, [currentStep, sbpfVersion, slots, functionRegistry])
 
+    const maxStep = cfgNodes.inner.size + cfgEdges.inner.size + slots.length - 1
+
     const grouppedSlots = useMemo(() => {
         const ownershipMap = new Map<number, number>()
 
@@ -85,26 +93,39 @@ export function BlockBoundariesStage({
 
         const groups: Array<{
             owner: number | undefined
+            startPc: number
             slots: Array<InsnRaw>
         }> = []
-        let currentGroup: Array<InsnRaw> = []
+        let currentGroup: {
+            owner: number | undefined
+            startPc: number
+            slots: Array<InsnRaw>
+        } = {
+            owner: undefined,
+            startPc: 0,
+            slots: [],
+        }
         let lastOwner: number | undefined = undefined
 
         slots.forEach((slot, pc) => {
             const owner = ownershipMap.get(pc)
 
             const wasOwnerChanged = owner !== lastOwner
-            if (wasOwnerChanged && currentGroup.length > 0) {
-                groups.push({ owner, slots: currentGroup })
-                currentGroup = []
+            if (wasOwnerChanged && currentGroup.slots.length > 0) {
+                groups.push(currentGroup)
+                currentGroup = {
+                    owner,
+                    startPc: pc,
+                    slots: [],
+                }
             }
 
-            currentGroup.push(slot)
+            currentGroup.slots.push(slot)
             lastOwner = owner
         })
 
-        if (currentGroup.length > 0) {
-            groups.push({ owner: lastOwner, slots: currentGroup })
+        if (currentGroup.slots.length > 0) {
+            groups.push(currentGroup)
         }
 
         return groups
@@ -119,64 +140,114 @@ export function BlockBoundariesStage({
                             setFormatStyle={setFormatStyle}
                         />
                     </div>
-                    {grouppedSlots.map(({ owner, slots }, index) => (
-                        <div
-                            className={cn(
-                                "flex flex-col justify-center gap-1",
-                                typeof owner !== "undefined" && "bg-red-400/20",
-                            )}
-                            key={index}
-                        >
-                            {slots.map((_, index) => {
-                                const labelU8Arr =
-                                    functionRegistry.map.inner.get(
-                                        BigInt(index),
-                                    )?.[0]
-                                const isLeader = !!cfgNodes.inner.get(
-                                    BigInt(index),
-                                )
-                                const isEdge = !!cfgEdges.inner.get(
-                                    BigInt(index),
-                                )
-                                return (
-                                    <React.Fragment key={index}>
-                                        {labelU8Arr && (
-                                            <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
-                                                {u8ArrayToString(labelU8Arr)}:
-                                            </span>
-                                        )}
-                                        <span
-                                            key={index}
-                                            className={cn(
-                                                "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
-                                                isLeader &&
-                                                    isEdge &&
-                                                    "bg-indigo-800/15 dark:bg-indigo-800/15",
-                                                isLeader &&
-                                                    isEdge &&
-                                                    "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
+                    {grouppedSlots.map(
+                        ({ owner, slots: groupSlots, startPc }, index) => (
+                            <div
+                                className={cn(
+                                    "flex flex-col justify-center gap-1",
+                                    typeof owner !== "undefined" &&
+                                        "bg-red-400/20",
+                                )}
+                                key={index}
+                            >
+                                {groupSlots.map((_, groupPc) => {
+                                    const pc = startPc + groupPc
+                                    const labelU8Arr =
+                                        functionRegistry.map.inner.get(
+                                            BigInt(pc),
+                                        )?.[0]
+                                    const isLeader = !!cfgNodes.inner.get(
+                                        BigInt(pc),
+                                    )
+                                    const isEdge = !!cfgEdges.inner.get(
+                                        BigInt(pc),
+                                    )
+                                    return (
+                                        <React.Fragment key={pc}>
+                                            {labelU8Arr && (
+                                                <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
+                                                    {u8ArrayToString(
+                                                        labelU8Arr,
+                                                    )}
+                                                    :
+                                                </span>
                                             )}
-                                        >
-                                            {index}:{" "}
-                                            {formatInstruction({
-                                                prog: slots,
-                                                pc: BigInt(index),
-                                                style: formatStyle,
-                                            })}
-                                        </span>
-                                    </React.Fragment>
-                                )
-                            })}
-                        </div>
-                    ))}
+                                            <span
+                                                key={pc}
+                                                className={cn(
+                                                    "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
+                                                    isLeader &&
+                                                        isEdge &&
+                                                        "bg-indigo-800/15 dark:bg-indigo-800/15",
+                                                    isLeader &&
+                                                        isEdge &&
+                                                        "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15",
+                                                )}
+                                            >
+                                                {pc}:{" "}
+                                                {formatInstruction({
+                                                    prog: slots,
+                                                    pc: BigInt(pc),
+                                                    style: formatStyle,
+                                                })}
+                                            </span>
+                                        </React.Fragment>
+                                    )
+                                })}
+                            </div>
+                        ),
+                    )}
                 </div>,
                 leftBlock,
             )}
             {createPortal(
-                <ResizablePanelGroup
-                    key={1}
-                    orientation="vertical"
-                ></ResizablePanelGroup>,
+                <ResizablePanelGroup key={1} orientation="vertical">
+                    <ResizablePanel defaultSize="70%"></ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel
+                        defaultSize="30%"
+                        className="flex justify-center items-center"
+                    >
+                        <div className="flex w-full flex-col items-center  gap-4 p-3">
+                            <Label>
+                                Current step:
+                                <span className="font-bold tabular-nums">
+                                    {currentStep + 1}
+                                </span>
+                            </Label>
+                            <WideSlider
+                                value={[currentStep]}
+                                onValueChange={(value) => {
+                                    setCurrentStep(value as number)
+                                }}
+                                min={0}
+                                max={maxStep}
+                                step={1}
+                                className="mx-auto w-full max-w-lg"
+                            />
+                            <div className="w-full flex justify-center items-center gap-4">
+                                <Button
+                                    className="w-[10ch]"
+                                    disabled={currentStep <= 0}
+                                    onClick={() =>
+                                        setCurrentStep((prev) => prev - 1)
+                                    }
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    className="w-[10ch]"
+                                    disabled={currentStep === maxStep}
+                                    onClick={() =>
+                                        setCurrentStep((prev) => prev + 1)
+                                    }
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>,
                 rightBlock,
             )}
         </>
@@ -232,7 +303,18 @@ function defineInstructionsAndDestinations({
     >["lastEvent"] = null
 
     while (currentStep <= maxStep) {
-        const [cfgNodeStart, cfgNode] = Array.from(cfgNodes.inner)[cfgNodeIndex]
+        const entry = Array.from(cfgNodes.inner)[cfgNodeIndex]
+        if (!entry) {
+            return {
+                cfgNodes,
+                cfgEdges,
+                instructionIndex,
+                cfgNodeIndex,
+                cfgEdgeIndex,
+                lastEvent,
+            }
+        }
+        const [cfgNodeStart, cfgNode] = entry
         const cfgNodeEnd =
             cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
                 ? // Next basic block start -1, if there is a next block

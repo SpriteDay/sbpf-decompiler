@@ -296,7 +296,7 @@ export function getFilteredLeadersAndEdges({
     sbpfVersion,
 }: {
     slots: Array<InsnRaw>
-    currentStep: number
+    currentStep?: number
     functionRegistry: FunctionRegistry<bigint>
     sbpfVersion: SBPFVersion
 }) {
@@ -306,6 +306,15 @@ export function getFilteredLeadersAndEdges({
         functionRegistry,
         sbpfVersion,
     })
+
+    if (typeof currentStep === "undefined") {
+        const maxSafeStep =
+            leaders.inner.size +
+            edges.inner.size +
+            functionRegistry.map.inner.size -
+            1
+        currentStep = maxSafeStep
+    }
 
     const removed: {
         leaders: Array<{ index: number; pc: bigint; reason: string }>

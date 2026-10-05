@@ -22,7 +22,9 @@ export function formatInstruction({
     switch (opc) {
         case OpCodes.LD_DW_IMM: {
             const slot = prog[Number(pc)]
-            const moreSignificantHalf = prog[Number(pc) + 1].imm
+            const moreSignificantHalf = prog[Number(pc) + 1]
+                ? prog[Number(pc) + 1].imm
+                : 0n
             let resultImm = imm
             if (augmentLddw) {
                 resultImm = BigInt.asIntN(
