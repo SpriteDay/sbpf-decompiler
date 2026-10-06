@@ -530,7 +530,7 @@ export function GraphVisualization({
             <CardContent className="flex justify-center py-2">
                 <ResizablePanelGroup
                     orientation="vertical"
-                    className="relative h-240! rounded-lg border"
+                    className="relative h-[90vh]! rounded-lg border"
                 >
                     <ResizablePanel defaultSize="50%">
                         <div className="h-full">
@@ -702,10 +702,10 @@ export function GraphVisualization({
                                     key={1}
                                     orientation="vertical"
                                 >
-                                    <ResizablePanel defaultSize="70%">
+                                    <ResizablePanel defaultSize="50%">
                                         <div className="flex justify-center p-2 flex-col gap-1">
                                             <p>
-                                                Leaders:{" "}
+                                                Nodes:{" "}
                                                 {cfgNodes.inner.size === 0 ? (
                                                     <span className="text-foreground/50">
                                                         {"<Empty>"}
@@ -774,7 +774,7 @@ export function GraphVisualization({
                                     </ResizablePanel>
                                     <ResizableHandle withHandle />
                                     <ResizablePanel
-                                        defaultSize="30%"
+                                        defaultSize="50%"
                                         className="flex justify-center items-center"
                                     >
                                         <div className="flex w-full flex-col items-center  gap-4 p-3">
