@@ -255,6 +255,7 @@ export function GraphVisualization() {
         cfgNodes,
         cfgEdges,
         destinationsCfgNodeIndex,
+        linkingCfgNodeIndex,
         instructionIndex,
         lastEvent,
         linkingStep,
@@ -277,17 +278,20 @@ export function GraphVisualization() {
             currentStep - instructionIndex - destinationsCfgNodeIndex,
             0,
         )
+        let linkingCfgNodeIndex: number | undefined = undefined
         if (linkingStep > 0) {
             const result = linkCfgNodes({
                 cfgNodes,
                 maxStep: linkingStep,
             })
             cfgNodes = result.cfgNodes
+            linkingCfgNodeIndex = linkingStep
         }
         return {
             cfgNodes,
             cfgEdges,
             destinationsCfgNodeIndex,
+            linkingCfgNodeIndex,
             instructionIndex,
             lastEvent,
             linkingStep,
@@ -619,6 +623,11 @@ export function GraphVisualization() {
                                                             const destinationsPassedCfgNode =
                                                                 index <=
                                                                 destinationsCfgNodeIndex
+                                                            const linkingPassedCfgNode =
+                                                                typeof linkingCfgNodeIndex ===
+                                                                    "number" &&
+                                                                index <=
+                                                                    linkingCfgNodeIndex
                                                             return (
                                                                 <Badge
                                                                     className={cn(
@@ -629,6 +638,18 @@ export function GraphVisualization() {
                                                                     )}
                                                                     key={pc}
                                                                 >
+                                                                    {linkingPassedCfgNode && (
+                                                                        <span>
+                                                                            [
+                                                                            {cfgNode.sources.join(
+                                                                                "|",
+                                                                            )}
+                                                                            ]
+                                                                            {
+                                                                                "-> "
+                                                                            }
+                                                                        </span>
+                                                                    )}
                                                                     {pc}
                                                                     {destinationsPassedCfgNode && (
                                                                         <span>
