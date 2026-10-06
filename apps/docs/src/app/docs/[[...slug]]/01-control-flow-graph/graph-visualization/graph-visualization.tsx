@@ -262,7 +262,7 @@ function CfgNodeCard({ id, data }: NodeProps<CfgFlowNode>) {
                             {formatInstruction({
                                 prog: Slots,
                                 pc: BigInt(pc),
-                                style: "LLVM",
+                                style: "NASM",
                             })}
                         </span>
                     ))
@@ -683,7 +683,7 @@ export function GraphVisualization({
                                                                             pc: BigInt(
                                                                                 pc,
                                                                             ),
-                                                                            style: "LLVM",
+                                                                            style: "NASM",
                                                                         },
                                                                     )}
                                                                 </span>
