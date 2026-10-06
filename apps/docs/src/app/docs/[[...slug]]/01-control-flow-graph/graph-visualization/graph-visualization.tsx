@@ -5,7 +5,6 @@ import {
     Card,
     CardContent,
     CardDescription,
-    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -54,6 +53,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { logger } from "@/lib/logger"
+import { useTheme } from "next-themes"
 
 const elk = new ELK()
 
@@ -307,6 +307,10 @@ export function GraphVisualization() {
 
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const { fitView } = useReactFlow()
+    // React Flow has to follow the theme of the docs instead of the system one,
+    // as it sets its own `dark` class on the canvas
+    const { resolvedTheme } = useTheme()
+    const colorMode = resolvedTheme === "dark" ? "dark" : "light"
 
     // The complete graph is layouted once on mount, so the nodes keep their
     // places while stepping.
@@ -423,238 +427,287 @@ export function GraphVisualization() {
             </CardHeader>
             <CardContent className="flex justify-center py-2">
                 <ResizablePanelGroup
-                    orientation="horizontal"
-                    className="relative rounded-lg border"
+                    orientation="vertical"
+                    className="relative h-240! rounded-lg border"
                 >
-                    <ResizablePanel defaultSize="40%">
-                        <div className="relative flex justify-center p-2 flex-col gap-1">
-                            {/* <div className="absolute bottom-3 right-3 z-10 opacity-90">
+                    <ResizablePanel defaultSize="35%">
+                        <div className="h-full">
+                            <CfgNodeViewsContext value={cfgNodeViews}>
+                                <ReactFlow
+                                    suppressHydrationWarning
+                                    nodes={nodes}
+                                    edges={edges}
+                                    nodeTypes={nodeTypes}
+                                    onNodesChange={onNodesChange}
+                                    nodesConnectable={false}
+                                    minZoom={0.2}
+                                    colorMode={colorMode}
+                                    style={{
+                                        background: "transparent",
+                                    }}
+                                >
+                                    <Panel
+                                        position="top-left"
+                                        className="flex flex-col gap-1 rounded-md border bg-background/90 p-2 text-xs"
+                                    >
+                                        <span className="font-semibold">
+                                            {isLinking
+                                                ? "Pass 2: linking sources"
+                                                : "Pass 1: instructions and destinations"}
+                                        </span>
+                                        <span className="flex items-center gap-2">
+                                            <span
+                                                className="w-6 border-t border-dashed"
+                                                style={{
+                                                    borderColor:
+                                                        PendingEdgeColor,
+                                                }}
+                                            />
+                                            destination recorded
+                                        </span>
+                                        <span className="flex items-center gap-2">
+                                            <span
+                                                className="w-6 border-t-2"
+                                                style={{
+                                                    borderColor:
+                                                        LinkedEdgeColor,
+                                                }}
+                                            />
+                                            source linked
+                                        </span>
+                                    </Panel>
+                                    <Controls showInteractive={false} />
+                                    <Background />
+                                </ReactFlow>
+                            </CfgNodeViewsContext>
+                        </div>
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel defaultSize="65%">
+                        <ResizablePanelGroup orientation="horizontal">
+                            <ResizablePanel
+                                defaultSize="50%"
+                                className="overflow-y-auto!"
+                            >
+                                <div className="relative flex justify-center p-2 flex-col gap-1">
+                                    {/* <div className="absolute bottom-3 right-3 z-10 opacity-90">
                                             <FormattingSelector
                                                 formatStyle={formatStyle}
                                                 setFormatStyle={setFormatStyle}
                                             />
                                         </div> */}
-                            {grouppedSlots.map(
-                                (
-                                    { owner, slots: groupSlots, startPc },
-                                    index,
-                                ) => (
-                                    <div
-                                        className={cn(
-                                            "relative flex flex-col justify-center gap-1 rounded-sm",
-                                            typeof owner !== "undefined" &&
-                                                "bg-red-600/10 dark:bg-red-400/10 border border-red-600/50 dark:border-red-400/50",
-                                        )}
-                                        key={index}
-                                    >
-                                        {typeof owner === "number" && (
-                                            <span className="absolute top-0.2 right-1 font-semibold text-red-800/80 dark:text-red-400">
-                                                #{index + 1}
-                                            </span>
-                                        )}
-                                        {groupSlots.map((_, groupPc) => {
-                                            const pc = startPc + groupPc
-                                            const labelU8Arr =
-                                                functionRegistry.map.inner.get(
-                                                    BigInt(pc),
-                                                )?.[0]
-                                            const isActive =
-                                                instructionIndex === pc
-                                            const isLeader =
-                                                !!cfgNodes.inner.get(BigInt(pc))
-                                            const isEdge = !!cfgEdges.inner.get(
-                                                BigInt(pc),
-                                            )
-                                            return (
-                                                <React.Fragment key={pc}>
-                                                    {labelU8Arr && (
-                                                        <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
-                                                            {u8ArrayToString(
-                                                                labelU8Arr,
-                                                            )}
-                                                            :
-                                                        </span>
-                                                    )}
-                                                    <span
-                                                        key={pc}
-                                                        className={cn(
-                                                            "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
-                                                            isActive &&
-                                                                "bg-foreground text-background",
-                                                            isLeader &&
-                                                                (isActive
-                                                                    ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
-                                                                    : "bg-red-800/15 dark:bg-red-800/15"),
-                                                            isEdge &&
-                                                                (isActive
-                                                                    ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
-                                                                    : "bg-indigo-800/15 dark:bg-indigo-800/15"),
-                                                            isLeader &&
-                                                                isEdge &&
-                                                                (isActive
-                                                                    ? "bg-linear-to-r from-red-950 dark:from-red-700 to-indigo-950 dark:to-indigo-700 text-background dark:text-foreground"
-                                                                    : "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15"),
-                                                        )}
-                                                    >
-                                                        {pc}:{" "}
-                                                        {formatInstruction({
-                                                            prog: Slots,
-                                                            pc: BigInt(pc),
-                                                            style: "LLVM",
-                                                        })}
-                                                    </span>
-                                                </React.Fragment>
-                                            )
-                                        })}
-                                    </div>
-                                ),
-                            )}
-                        </div>
-                    </ResizablePanel>
-                    <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize="60%">
-                        <ResizablePanelGroup key={1} orientation="vertical">
-                            <ResizablePanel defaultSize="70%">
-                                <div className="h-full min-h-80">
-                                    <CfgNodeViewsContext value={cfgNodeViews}>
-                                        <ReactFlow
-                                            suppressHydrationWarning
-                                            nodes={nodes}
-                                            edges={edges}
-                                            nodeTypes={nodeTypes}
-                                            onNodesChange={onNodesChange}
-                                            nodesConnectable={false}
-                                            minZoom={0.2}
-                                            colorMode="system"
-                                            style={{
-                                                background: "transparent",
-                                            }}
-                                        >
-                                            <Panel
-                                                position="top-left"
-                                                className="flex flex-col gap-1 rounded-md border bg-background/90 p-2 text-xs"
+                                    {grouppedSlots.map(
+                                        (
+                                            {
+                                                owner,
+                                                slots: groupSlots,
+                                                startPc,
+                                            },
+                                            index,
+                                        ) => (
+                                            <div
+                                                className={cn(
+                                                    "relative flex flex-col justify-center gap-1 rounded-sm",
+                                                    typeof owner !==
+                                                        "undefined" &&
+                                                        "bg-red-600/10 dark:bg-red-400/10 border border-red-600/50 dark:border-red-400/50",
+                                                )}
+                                                key={index}
                                             >
-                                                <span className="font-semibold">
-                                                    {isLinking
-                                                        ? "Pass 2: linking sources"
-                                                        : "Pass 1: instructions and destinations"}
-                                                </span>
-                                                <span className="flex items-center gap-2">
-                                                    <span
-                                                        className="w-6 border-t border-dashed"
-                                                        style={{
-                                                            borderColor:
-                                                                PendingEdgeColor,
-                                                        }}
-                                                    />
-                                                    destination recorded
-                                                </span>
-                                                <span className="flex items-center gap-2">
-                                                    <span
-                                                        className="w-6 border-t-2"
-                                                        style={{
-                                                            borderColor:
-                                                                LinkedEdgeColor,
-                                                        }}
-                                                    />
-                                                    source linked
-                                                </span>
-                                            </Panel>
-                                            <Controls showInteractive={false} />
-                                            <Background />
-                                        </ReactFlow>
-                                    </CfgNodeViewsContext>
+                                                {typeof owner === "number" && (
+                                                    <span className="absolute top-0.2 right-1 font-semibold text-red-800/80 dark:text-red-400">
+                                                        #{index + 1}
+                                                    </span>
+                                                )}
+                                                {groupSlots.map(
+                                                    (_, groupPc) => {
+                                                        const pc =
+                                                            startPc + groupPc
+                                                        const labelU8Arr =
+                                                            functionRegistry.map.inner.get(
+                                                                BigInt(pc),
+                                                            )?.[0]
+                                                        const isActive =
+                                                            instructionIndex ===
+                                                            pc
+                                                        const isLeader =
+                                                            !!cfgNodes.inner.get(
+                                                                BigInt(pc),
+                                                            )
+                                                        const isEdge =
+                                                            !!cfgEdges.inner.get(
+                                                                BigInt(pc),
+                                                            )
+                                                        return (
+                                                            <React.Fragment
+                                                                key={pc}
+                                                            >
+                                                                {labelU8Arr && (
+                                                                    <span className="font-semibold opacity-60 font-mono rounded-sm px-1">
+                                                                        {u8ArrayToString(
+                                                                            labelU8Arr,
+                                                                        )}
+                                                                        :
+                                                                    </span>
+                                                                )}
+                                                                <span
+                                                                    key={pc}
+                                                                    className={cn(
+                                                                        "font-semibold font-mono rounded-sm pe-1 ps-4 transition-colors duration-100",
+                                                                        isActive &&
+                                                                            "bg-foreground text-background",
+                                                                        isLeader &&
+                                                                            (isActive
+                                                                                ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
+                                                                                : "bg-red-800/15 dark:bg-red-800/15"),
+                                                                        isEdge &&
+                                                                            (isActive
+                                                                                ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
+                                                                                : "bg-indigo-800/15 dark:bg-indigo-800/15"),
+                                                                        isLeader &&
+                                                                            isEdge &&
+                                                                            (isActive
+                                                                                ? "bg-linear-to-r from-red-950 dark:from-red-700 to-indigo-950 dark:to-indigo-700 text-background dark:text-foreground"
+                                                                                : "bg-linear-to-r from-red-800/15 dark:from-red-800/15 to-indigo-800/15 dark:to-indigo-800/15"),
+                                                                    )}
+                                                                >
+                                                                    {pc}:{" "}
+                                                                    {formatInstruction(
+                                                                        {
+                                                                            prog: Slots,
+                                                                            pc: BigInt(
+                                                                                pc,
+                                                                            ),
+                                                                            style: "LLVM",
+                                                                        },
+                                                                    )}
+                                                                </span>
+                                                            </React.Fragment>
+                                                        )
+                                                    },
+                                                )}
+                                            </div>
+                                        ),
+                                    )}
                                 </div>
                             </ResizablePanel>
                             <ResizableHandle withHandle />
-                            <ResizablePanel
-                                defaultSize="30%"
-                                className="flex justify-center items-center"
-                            >
-                                <div className="flex justify-center p-2 flex-col gap-1">
-                                    <p>
-                                        Leaders:{" "}
-                                        {cfgNodes.inner.size === 0 ? (
-                                            <span className="text-foreground/50">
-                                                {"<Empty>"}
-                                            </span>
-                                        ) : (
-                                            Array.from(cfgNodes.inner).map(
-                                                ([pc, cfgNode], index) => {
-                                                    const isActive =
-                                                        index ===
-                                                        activeCfgNodeIndex
-                                                    const destinationsPassedCfgNode =
-                                                        index <=
-                                                        destinationsCfgNodeIndex
-                                                    return (
-                                                        <Badge
-                                                            className={cn(
-                                                                "text-foreground me-1 mb-1",
-                                                                isActive
-                                                                    ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
-                                                                    : "bg-red-800/15 dark:bg-red-500/15",
-                                                            )}
-                                                            key={pc}
-                                                        >
-                                                            {pc}
-                                                            {destinationsPassedCfgNode && (
-                                                                <span>
-                                                                    {"-> "}[
-                                                                    {cfgNode.destinations.join(
-                                                                        "|",
+                            <ResizablePanel defaultSize="50%">
+                                <ResizablePanelGroup
+                                    key={1}
+                                    orientation="vertical"
+                                >
+                                    <ResizablePanel defaultSize="70%">
+                                        <div className="flex justify-center p-2 flex-col gap-1">
+                                            <p>
+                                                Leaders:{" "}
+                                                {cfgNodes.inner.size === 0 ? (
+                                                    <span className="text-foreground/50">
+                                                        {"<Empty>"}
+                                                    </span>
+                                                ) : (
+                                                    Array.from(
+                                                        cfgNodes.inner,
+                                                    ).map(
+                                                        (
+                                                            [pc, cfgNode],
+                                                            index,
+                                                        ) => {
+                                                            const isActive =
+                                                                index ===
+                                                                activeCfgNodeIndex
+                                                            const destinationsPassedCfgNode =
+                                                                index <=
+                                                                destinationsCfgNodeIndex
+                                                            return (
+                                                                <Badge
+                                                                    className={cn(
+                                                                        "text-foreground me-1 mb-1",
+                                                                        isActive
+                                                                            ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
+                                                                            : "bg-red-800/15 dark:bg-red-500/15",
                                                                     )}
-                                                                    ]
-                                                                </span>
-                                                            )}
-                                                        </Badge>
+                                                                    key={pc}
+                                                                >
+                                                                    {pc}
+                                                                    {destinationsPassedCfgNode && (
+                                                                        <span>
+                                                                            {
+                                                                                "-> "
+                                                                            }
+                                                                            [
+                                                                            {cfgNode.destinations.join(
+                                                                                "|",
+                                                                            )}
+                                                                            ]
+                                                                        </span>
+                                                                    )}
+                                                                </Badge>
+                                                            )
+                                                        },
                                                     )
-                                                },
-                                            )
-                                        )}
-                                    </p>
-                                </div>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </ResizablePanel>
+                                    <ResizableHandle withHandle />
+                                    <ResizablePanel
+                                        defaultSize="30%"
+                                        className="flex justify-center items-center"
+                                    >
+                                        <div className="flex w-full flex-col items-center  gap-4 p-3">
+                                            <Label>
+                                                Current step:
+                                                <span className="font-bold tabular-nums">
+                                                    {currentStep + 1}
+                                                </span>
+                                            </Label>
+                                            <WideSlider
+                                                value={[currentStep]}
+                                                onValueChange={(value) => {
+                                                    setCurrentStep(
+                                                        value as number,
+                                                    )
+                                                }}
+                                                min={0}
+                                                max={maxStep}
+                                                step={1}
+                                                className="mx-auto w-full max-w-lg"
+                                            />
+                                            <div className="w-full flex justify-center items-center gap-4">
+                                                <Button
+                                                    className="w-[10ch]"
+                                                    disabled={currentStep <= 0}
+                                                    onClick={() =>
+                                                        setCurrentStep(
+                                                            (prev) => prev - 1,
+                                                        )
+                                                    }
+                                                >
+                                                    Previous
+                                                </Button>
+                                                <Button
+                                                    className="w-[10ch]"
+                                                    disabled={
+                                                        currentStep === maxStep
+                                                    }
+                                                    onClick={() =>
+                                                        setCurrentStep(
+                                                            (prev) => prev + 1,
+                                                        )
+                                                    }
+                                                >
+                                                    Next
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </ResizablePanel>
+                                </ResizablePanelGroup>
                             </ResizablePanel>
                         </ResizablePanelGroup>
                     </ResizablePanel>
                 </ResizablePanelGroup>
             </CardContent>
-            <CardFooter className="flex-col items-start gap-4 text-sm">
-                <div className="flex w-full flex-col items-center  gap-4 p-3">
-                    <Label>
-                        Current step:
-                        <span className="font-bold tabular-nums">
-                            {currentStep + 1}
-                        </span>
-                    </Label>
-                    <WideSlider
-                        value={[currentStep]}
-                        onValueChange={(value) => {
-                            setCurrentStep(value as number)
-                        }}
-                        min={0}
-                        max={maxStep}
-                        step={1}
-                        className="mx-auto w-full max-w-lg"
-                    />
-                    <div className="w-full flex justify-center items-center gap-4">
-                        <Button
-                            className="w-[10ch]"
-                            disabled={currentStep <= 0}
-                            onClick={() => setCurrentStep((prev) => prev - 1)}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            className="w-[10ch]"
-                            disabled={currentStep === maxStep}
-                            onClick={() => setCurrentStep((prev) => prev + 1)}
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
-            </CardFooter>
         </Card>
     )
 }
