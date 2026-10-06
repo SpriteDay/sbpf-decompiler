@@ -2,6 +2,7 @@ import { RootProvider } from "fumadocs-ui/provider/next"
 import "./global.css"
 import { Inter } from "next/font/google"
 import { Metadata } from "next"
+import { ReactFlowProvider } from "@xyflow/react"
 
 const inter = Inter({
     subsets: ["latin"],
@@ -51,7 +52,9 @@ export default function Layout({ children }: LayoutProps<"/">) {
     return (
         <html lang="en" className={inter.className} suppressHydrationWarning>
             <body className="flex min-h-screen flex-col">
-                <RootProvider>{children}</RootProvider>
+                <RootProvider>
+                    <ReactFlowProvider>{children}</ReactFlowProvider>
+                </RootProvider>
             </body>
         </html>
     )

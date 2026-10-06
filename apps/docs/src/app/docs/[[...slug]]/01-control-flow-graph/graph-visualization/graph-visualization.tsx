@@ -9,7 +9,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import React, { useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { Label } from "@/components/ui/label"
 import { WideSlider } from "@/components/custom/wide-slider"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,157 @@ import {
 import { cn } from "@/lib/utils"
 import { formatInstruction } from "../../components/utils"
 import { Badge } from "@/components/ui/badge"
+import ELK, { ElkNode, LayoutOptions } from "elkjs/lib/elk.bundled.js"
+import {
+    Background,
+    type Connection,
+    type Edge,
+    type Node,
+    Position,
+    ReactFlow,
+    addEdge,
+    useNodesState,
+    useEdgesState,
+    useReactFlow,
+} from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
+import { logger } from "@/lib/logger"
+
+const position = { x: 0, y: 0 }
+
+const initialNodes: Array<Node> = [
+    {
+        id: "1",
+        type: "input",
+        data: { label: "input" },
+        position,
+    },
+    {
+        id: "2",
+        data: { label: "node 2" },
+        position,
+    },
+    {
+        id: "2a",
+        data: { label: "node 2a" },
+        position,
+    },
+    {
+        id: "2b",
+        data: { label: "node 2b" },
+        position,
+    },
+    {
+        id: "2c",
+        data: { label: "node 2c" },
+        position,
+    },
+    {
+        id: "2d",
+        data: { label: "node 2d" },
+        position,
+    },
+    {
+        id: "3",
+        data: { label: "node 3" },
+        position,
+    },
+    {
+        id: "4",
+        data: { label: "node 4" },
+        position,
+    },
+    {
+        id: "5",
+        data: { label: "node 5" },
+        position,
+    },
+    {
+        id: "6",
+        type: "output",
+        data: { label: "output" },
+        position,
+    },
+    { id: "7", type: "output", data: { label: "output" }, position },
+]
+
+const initialEdges: Array<Edge> = [
+    { id: "e12", source: "1", target: "2", type: "smoothstep" },
+    { id: "e13", source: "1", target: "3", type: "smoothstep" },
+    { id: "e22a", source: "2", target: "2a", type: "smoothstep" },
+    { id: "e22b", source: "2", target: "2b", type: "smoothstep" },
+    { id: "e22c", source: "2", target: "2c", type: "smoothstep" },
+    { id: "e2c2d", source: "2c", target: "2d", type: "smoothstep" },
+    { id: "e45", source: "4", target: "5", type: "smoothstep" },
+    { id: "e56", source: "5", target: "6", type: "smoothstep" },
+    { id: "e57", source: "5", target: "7", type: "smoothstep" },
+]
+
+const elk = new ELK()
+
+// Elk has a *huge* amount of options to configure. To see everything you can
+// tweak check out:
+//
+// - https://www.eclipse.org/elk/reference/algorithms.html
+// - https://www.eclipse.org/elk/reference/options.html
+const elkOptions: LayoutOptions = {
+    "elk.direction": "DOWN",
+    "elk.algorithm": "layered",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "100",
+    "elk.spacing.nodeNode": "80",
+}
+
+const NodeWidth = 150
+const NodeHeight = 50
+
+// React Flow and ELK have their own node/edge shapes, so the graph is
+// translated to ELK for the layout and only positions are taken back.
+const getLayoutedElements = async ({
+    nodes,
+    edges,
+    options = elkOptions,
+}: {
+    nodes: Array<Node>
+    edges: Array<Edge>
+    options?: LayoutOptions
+}): Promise<{ nodes: Array<Node>; edges: Array<Edge> }> => {
+    const isHorizontal = options["elk.direction"] === "RIGHT"
+    const graph: ElkNode = {
+        id: "root",
+        layoutOptions: options,
+        children: nodes.map((node) => ({
+            id: node.id,
+            // Hardcode a width and height for elk to use when layouting.
+            width: NodeWidth,
+            height: NodeHeight,
+        })),
+        edges: edges.map((edge) => ({
+            id: edge.id,
+            sources: [edge.source],
+            targets: [edge.target],
+        })),
+    }
+
+    const layoutedGraph = await elk.layout(graph)
+    const positions = new Map(
+        layoutedGraph.children?.map((node) => [
+            node.id,
+            { x: node.x ?? 0, y: node.y ?? 0 },
+        ]),
+    )
+
+    return {
+        nodes: nodes.map((node) => ({
+            ...node,
+            // Adjust the target and source handle positions based on the layout
+            // direction.
+            targetPosition: isHorizontal ? Position.Left : Position.Top,
+            sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+            position: positions.get(node.id) ?? node.position,
+        })),
+        edges,
+    }
+}
 
 // biome-ignore format: keep all instructions in one line
 const Slots: Array<Insn> = [
@@ -112,6 +263,32 @@ export function GraphVisualization() {
     const grouppedSlots = useMemo(() => {
         return groupInstructionsByCfgNodes({ cfgNodes, slots: Slots })
     }, [cfgNodes])
+
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+    const { fitView } = useReactFlow()
+
+    const onConnect = useCallback(
+        (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+        [setEdges],
+    )
+
+    // Calculate the initial layout on mount.
+    useEffect(() => {
+        let cancelled = false
+        getLayoutedElements({ nodes: initialNodes, edges: initialEdges })
+            .then(({ nodes: layoutedNodes, edges: layoutedEdges }) => {
+                if (cancelled) return
+                setNodes(layoutedNodes)
+                setEdges(layoutedEdges)
+                void fitView()
+            })
+            .catch(logger.error)
+        return () => {
+            cancelled = true
+        }
+    }, [setNodes, setEdges, fitView])
+
     return (
         <Card>
             <CardHeader>
@@ -215,7 +392,19 @@ export function GraphVisualization() {
                     <ResizableHandle withHandle />
                     <ResizablePanel defaultSize="50%">
                         <ResizablePanelGroup key={1} orientation="vertical">
-                            <ResizablePanel defaultSize="70%"></ResizablePanel>
+                            <ResizablePanel defaultSize="70%">
+                                <ReactFlow
+                                    suppressHydrationWarning
+                                    nodes={nodes}
+                                    edges={edges}
+                                    onConnect={onConnect}
+                                    onNodesChange={onNodesChange}
+                                    onEdgesChange={onEdgesChange}
+                                    fitView
+                                >
+                                    <Background />
+                                </ReactFlow>
+                            </ResizablePanel>
                             <ResizableHandle withHandle />
                             <ResizablePanel
                                 defaultSize="30%"
