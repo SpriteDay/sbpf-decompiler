@@ -354,6 +354,7 @@ export const Analysis = {
                 }
             })
 
+        // Record every node that have some other node as destination, as a source of this node
         Analysis.linkCfgEdges(self, {
             cfgEdges: [...self.cfgNodes.inner].map(([source, cfgNode]) => ({
                 0: source,
@@ -361,5 +362,29 @@ export const Analysis = {
             })),
             bothDirections: false,
         })
+
+        if (flattenCallGraph) {
+            let destinations: Array<bigint> = []
+            const cfgEdges: Array<{ 0: bigint; 1: Array<bigint> }> = []
+            for (const { 0: source, 1: cfgNode } of self.cfgNodes.inner) {
+                if (self.functions.inner.has(source)) {
+                    destinations = cfgNode.sources.map(
+                        (destination) =>
+                            self.instructions[
+                                self.cfgNodes.inner.get(destination)!
+                                    .instructions[1]
+                            ].ptr,
+                    )
+                }
+                if (
+                    cfgNode.destinations.length === 0 &&
+                    self.instructions[cfgNode.instructions[1] - 1].opc ===
+                        OpCodes.EXIT
+                ) {
+                    cfgEdges.push({ 0: source, 1: [...destinations] })
+                }
+            }
+            Analysis.linkCfgEdges(self, { cfgEdges, bothDirections: true })
+        }
     },
 }
