@@ -89,6 +89,30 @@ export const Analysis = {
         return result
     },
 
+    linkCfgEdges(
+        self: Analysis,
+        {
+            cfgEdges,
+            bothDirections,
+        }: {
+            cfgEdges: Array<{ 0: bigint; 1: Array<bigint> }>
+            bothDirections: boolean
+        },
+    ) {
+        for (const { 0: source, 1: destinations } of cfgEdges) {
+            // Put destinations into the source if both directions flag is true
+            if (bothDirections) {
+                const cfgNode = self.cfgNodes.inner.get(source)
+                if (cfgNode) {
+                    cfgNode.destinations = destinations
+                }
+            }
+            for (const destination of destinations) {
+                self.cfgNodes.inner.get(destination)?.sources.push(source)
+            }
+        }
+    },
+
     /**
      * Splits the sequence of instructions into basic blocks
      *
@@ -322,10 +346,20 @@ export const Analysis = {
                         index + 1
                     ]
                     // If the next block is not a known function - we also record a fall-through to it
+                    // The check for function is not enforced by runtime - it's something we do to simplify
+                    // function detection at the Tarjan step
                     if (!self.functions.inner.get(nextCfgNode[0])) {
                         cfgNode.destinations.push(nextCfgNode[0])
                     }
                 }
             })
+
+        Analysis.linkCfgEdges(self, {
+            cfgEdges: [...self.cfgNodes.inner].map(([source, cfgNode]) => ({
+                0: source,
+                1: [...cfgNode.destinations],
+            })),
+            bothDirections: false,
+        })
     },
 }
