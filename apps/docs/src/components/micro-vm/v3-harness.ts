@@ -1,5 +1,5 @@
 import {
-    Insn,
+    InsnRaw,
     MM_HEAP_START,
     MM_INPUT_START,
     MM_RODATA_START,
@@ -8,24 +8,27 @@ import {
 } from "./ebpf"
 import { Executable } from "./elf"
 import { HostBuffer, MemoryMapping, MemoryRegion } from "./memory-mapping"
-import { BuiltinProgram } from "./program"
+import { BuiltinProgram, FunctionRegistry } from "./program"
 import { CallFrame, Config, ContextObject, EbpfVm } from "./vm"
 
 export function runV3InstructionsWithTracing({
-    instructions,
+    slots,
 }: {
-    instructions: Array<Insn>
+    slots: Array<InsnRaw>
 }) {
     const mem = new Uint8Array()
 
-    const executable: Executable = {
-        instructions,
-        sbpfVersion: "V3",
-    }
     const rodata = new Uint8Array()
     const config = Config.default()
     config.enableRegisterTracing = true
     const loader = BuiltinProgram.new({ config })
+
+    const executable: Executable = {
+        slots,
+        sbpfVersion: "V3",
+        functionRegistry: FunctionRegistry.default(),
+        loader,
+    }
     const sbpfVersion = executable.sbpfVersion
 
     const stack = new Uint8Array(
@@ -72,5 +75,5 @@ export function runV3InstructionsWithTracing({
         return defaultCallFrame
     })
     const programResult = EbpfVm.executeProgram(vm, { executable, callFrames })
-    return { programResult, registerTrace: vm.registerTrace }
+    return { programResult, registerTrace: vm.registerTrace, executable }
 }

@@ -1,0 +1,20 @@
+---
+title: 03. Bit Extension
+description: Extending signed and unsigned value
+---
+
+We look at the same bits differently when we read them as signed vs unsigned. In signed case we take most significant bit as negative, which makes bit math easier:
+
+<BitRepresentation />
+
+But when we extend the value - it is important to understand whether we take the value as signed or unsigned:
+
+You can try to toggle the bit extension - it will work for positive values, but for negative values you actually need to flip every extended bit in order to preserve the same signed value 
+
+<BitExtension />
+
+Let's see how we can control bit extension from different types of values using masking through `AND` and `OR` operations
+
+Try to get signed value after 0 bit extended value, and unsigned value from sign extended bits from here:
+
+<MaskOperations />

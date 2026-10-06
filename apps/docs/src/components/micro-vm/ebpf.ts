@@ -5,6 +5,9 @@
 // the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+import { Hash } from "./dependencies/hash"
+import { Hasher as MurMur3Hasher } from "./dependencies/murmur3"
+
 /** Size of an eBPF instructions, in bytes. */
 export const INSN_SIZE = 8
 /** Frame pointer register */
@@ -30,6 +33,8 @@ export const MM_HEAP_START = MM_REGION_SIZE * 3n
 export const MM_INPUT_START = MM_REGION_SIZE * 4n
 
 // Three least significant bits are operation class:
+/** BPF operation class: load from immideate */
+const BPF_LD = 0b0000_0_000n
 /** BPF operation class: 32 bit airthmetic or load. */
 const BPF_ALU32_LOAD = 0b0000_0_100n
 /** BPF operation class: 64 bit control flow. */
@@ -45,8 +50,14 @@ const BPF_ALU64_STORE = 0b0000_0_111n
 // (MSB)                      (LSB)
 
 // Size modifiers:
+/** BPF size modifier: double word (8 bytes). */
+const BPF_DW = 0b000_11_000n
 /** BPF size modifier: 8 bytes. */
 const BPF_8B = 0b100_10_000n
+
+// Mode modifiers:
+/** BPF mode modifier: immediate value. */
+const BPF_IMM = 0b000_00_000n
 
 // For arithmetic (BPF_ALU/BPF_ALU64_STORE) and jump (BPF_JUMP64) instructions:
 // +----------------+-------+------------+
@@ -76,6 +87,8 @@ const BPF_JA = 0b0000_0_000n
 const BPF_JEQ = 0b0001_0_000n
 /** BPF JMP operation code: jump if greater. */
 const BPF_JGT = 0b0010_0_000n
+/** BPF JMP operation code: syscall or internal function call */
+const BPF_CALL = 0b1000_0_000n
 /** BPF JMP operation code: return from program. */
 const BPF_EXIT = 0b1001_0_000n
 
@@ -85,6 +98,8 @@ const BPF_EXIT = 0b1001_0_000n
  * Linux kernel only combines above flags and does not attribute a name per operation.)
  */
 export const OpCodes = {
+    /** BPF opcode: `lddw dst, imm` | `dst = imm` */
+    LD_DW_IMM: BPF_LD | BPF_IMM | BPF_DW,
     /** BPF opcode: `ldxdw dst, [src+off]` | `dst = (src + off) as u64` */
     LD_8B_REG: BPF_ALU32_LOAD | BPF_X | BPF_8B,
 
@@ -106,6 +121,10 @@ export const OpCodes = {
     JEQ64_IMM: BPF_JMP64 | BPF_K | BPF_JEQ,
     /** BPF opcode: `jgt64 dst, imm, +off` | `PC += off if dst > imm` */
     JGT64_IMM: BPF_JMP64 | BPF_K | BPF_JGT,
+    /** BPF opcode: `call imm` | syscall or function call to syscall with key `imm` */
+    CALL_IMM: BPF_JMP64 | BPF_CALL,
+    /** BPF opcode: `call reg */
+    CALL_REG: BPF_JMP64 | BPF_X | BPF_CALL,
     /** BPF opcode: `exit` | `return r0` */
     EXIT: BPF_JMP64 | BPF_EXIT,
 }
@@ -123,4 +142,49 @@ export interface Insn {
     off: bigint
     // Immideate value operand
     imm: bigint
+}
+
+export type InsnRaw = Omit<Insn, "ptr">
+
+/** Same as `getInsn` except unchecked */
+export function getInsnUnchecked({
+    slot,
+    pc,
+}: {
+    slot: InsnRaw
+    pc: bigint
+}): Insn {
+    return {
+        ptr: pc,
+        ...slot,
+    }
+}
+
+/** Merge the two halves of a LD_DW_IMM instruction */
+export function augmentLddwUnchecked({
+    prog,
+    insn,
+}: {
+    prog: Array<InsnRaw>
+    insn: Insn
+}) {
+    const moreSignificantHalf = prog[Number(insn.ptr) + 1].imm
+    insn.imm = BigInt.asIntN(
+        64,
+        (BigInt.asUintN(64, insn.imm) & 0xffff_ffffn) |
+            (BigInt.asUintN(64, moreSignificantHalf) << 32n),
+    )
+}
+
+/**
+ * Hash a symbol name
+ *
+ * This function is used by both the relocator and the VM to translate symbol names
+ * into a 32 bit id used to identify a syscall function. The 32 bit id is used in the
+ * eBPF `call` instruction's imm field.
+ */
+export function hashSymbolName(name: Uint8Array): number {
+    const hasher = MurMur3Hasher.default()
+    Hash.hashU8Slice({ data: name, state: hasher })
+    return MurMur3Hasher.finish32(hasher)
 }

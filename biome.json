@@ -41,7 +41,12 @@
                     "fix": "none"
                 }
             },
-            "suspicious": { "noConsole": "error", "noExplicitAny": "error" }
+            "suspicious": {
+                "noConsole": "error",
+                "noExplicitAny": "error",
+                "useGuardForIn": "warn",
+                "noFallthroughSwitchClause": "warn"
+            }
         }
     },
     "javascript": {

@@ -1,4 +1,11 @@
-import { Config } from "./vm"
+import {
+    SortedMap,
+    stringToU8Array,
+    toU32,
+    usizeToLeBytes,
+} from "./dependencies/utils"
+import { hashSymbolName } from "./ebpf"
+import { Config, EbpfVm, EncryptedHostAddressToEbpfVm } from "./vm"
 
 /**
  * Defines a set of sbpfVersion of a program
@@ -88,17 +95,126 @@ export const SBPFFeatures = {
     callxUsesDstReg(sbpfVersion: SBPFVersion) {
         return SBPFVersion[sbpfVersion] >= 3
     },
+
+    /**
+     * Calculate the target program counter for a CALL_IMM instruction depending on
+     * the SBPF version
+     */
+    calculateCallImmTargetPc(
+        sbpfVersion: SBPFVersion,
+        { pc, imm }: { pc: bigint; imm: bigint },
+    ) {
+        if (SBPFFeatures.staticSyscalls(sbpfVersion)) {
+            return BigInt.asUintN(32, BigInt.asIntN(64, pc) + imm + 1n)
+        } else {
+            return BigInt.asUintN(32, imm)
+        }
+    },
 }
+
+/** Holds the function symbols of an Executable */
+export interface FunctionRegistry<T> {
+    map: SortedMap<[Uint8Array, T]>
+}
+
+export const FunctionRegistry = {
+    default<T>(): FunctionRegistry<T> {
+        return {
+            map: SortedMap.new<[Uint8Array, T]>(),
+        }
+    },
+
+    /** Register a symbol with an explicit key */
+    registerFunction<T>(
+        self: FunctionRegistry<T>,
+        { key, name, value }: { key: bigint; name: string; value: T },
+    ) {
+        const entry = self.map.inner.get(key)
+        if (!entry) {
+            self.map.inner.set(key, [stringToU8Array(name), value])
+        } else {
+            if (entry[1] !== value) {
+                throw new Error(`SymbolHashCollision: ${key}`)
+            }
+        }
+    },
+
+    /** Used for transitioning from SBPFv0 to SBPFv3 */
+    registerFunctionHashedLegacy<T>(
+        self: FunctionRegistry<T>,
+        {
+            loader,
+            hashSymbolName: hashSymbolNameFlag,
+            name,
+            value,
+        }: {
+            loader: BuiltinProgram
+            hashSymbolName: boolean
+            name: string
+            value: T
+        },
+    ): number {
+        const config = loader.config
+        let key: number
+        if (hashSymbolNameFlag) {
+            const hash =
+                name === "entrypoint"
+                    ? hashSymbolName(stringToU8Array("entrypoint"))
+                    : hashSymbolName(
+                          usizeToLeBytes(
+                              typeof value === "bigint"
+                                  ? value
+                                  : BigInt(Number(value)),
+                          ),
+                      )
+            if (
+                BuiltinProgram.getFunctionRegistry(loader).map.inner.get(
+                    BigInt(hash),
+                )
+            ) {
+                throw new Error("SymbolHashCollision")
+            }
+            key = hash
+        } else {
+            key = toU32(Number(value))
+        }
+        FunctionRegistry.registerFunction(self, {
+            key: BigInt(key),
+            name:
+                config.enableSymbolAndSectionLabels || name === "entrypoint"
+                    ? name
+                    : "",
+            value,
+        })
+        return key
+    },
+}
+
+export type BuiltinFunction = (
+    vm: EbpfVm,
+    a: bigint,
+    b: bigint,
+    c: bigint,
+    d: bigint,
+    e: bigint,
+) => void
 
 /** Represents the interface to a fixed functionality program */
 export interface BuiltinProgram {
     config: Config
+    sparseRegistry: FunctionRegistry<[BuiltinFunction]>
 }
 
 export const BuiltinProgram = {
     new({ config }: { config: Config }): BuiltinProgram {
         return {
             config,
+            sparseRegistry: FunctionRegistry.default(),
         }
+    },
+
+    /** Get the function registry depending on the SBPF version */
+    getFunctionRegistry(self: BuiltinProgram) {
+        return self.sparseRegistry
     },
 }

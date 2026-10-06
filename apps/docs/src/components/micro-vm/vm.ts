@@ -2,7 +2,7 @@ import { FRAME_PTR_REG, MM_STACK_START } from "./ebpf"
 import { Executable } from "./elf"
 import { Interpreter } from "./interpreter"
 import { MemoryMapping } from "./memory-mapping"
-import { BuiltinProgram } from "./program"
+import { BuiltinFunction, BuiltinProgram } from "./program"
 
 export const defaults = {
     DEFAULT_STACK_FRAME_SIZE: 4_096n,
@@ -17,8 +17,12 @@ export interface Config {
     maxCallDepth: number
     /** Size of a stack frame in bytes, must match the size specified in the LLVM BPF backend */
     stackFrameSize: bigint
+    /** Enables gaps in VM address space between the stack frames */
+    enableStackFrameGaps: boolean
     /** Enable instruction tracing */
     enableRegisterTracing: boolean
+    /** Enable dynamic string allocation for labels */
+    enableSymbolAndSectionLabels: boolean
 }
 
 export const Config = {
@@ -26,7 +30,9 @@ export const Config = {
         return {
             maxCallDepth: 64,
             stackFrameSize: defaults.getStackFrameSize(),
+            enableStackFrameGaps: false,
             enableRegisterTracing: false,
+            enableSymbolAndSectionLabels: false,
         }
     },
 }
@@ -34,6 +40,27 @@ export const Config = {
 /** Runtime context */
 export interface ContextObject {
     activeMapping: MemoryMapping
+}
+
+/** Statistics of token branches (from a record trace) */
+export interface DynamicAnalysis {
+    edgeCounterMax: number
+    edges: Record<number, Record<number, number>>
+}
+
+export const DynamicAnalysis = {
+    /** Accumulates a trace */
+    new({
+        registerTrace,
+    }: {
+        registerTrace: Array<BigInt64Array>
+    }): DynamicAnalysis {
+        const result: DynamicAnalysis = {
+            edgeCounterMax: 0,
+            edges: {},
+        }
+        return result
+    },
 }
 
 /** A call frame used for function calls inside the Interpreter */
@@ -57,6 +84,10 @@ export interface EbpfVm {
      * config.maxCallDepth and to know when to terminate execution.
      */
     callDepth: number
+    /** Last return value of instructionMeter.getRemaining() */
+    previousInstructionMeter: bigint
+    /** Outstanding value to instructionMeter.consume() */
+    dueInsnCount: bigint
     /** Registers inlined */
     registers: BigUint64Array
     /** Program result inlined */
@@ -85,6 +116,8 @@ export const EbpfVm = {
         )
         return {
             callDepth: 0,
+            previousInstructionMeter: 0n,
+            dueInsnCount: 0n,
             registers,
             programResult: 0n,
             memoryMapping: contextObject.activeMapping,
@@ -97,24 +130,44 @@ export const EbpfVm = {
      * Execute the program
      */
     executeProgram(
-        vm: EbpfVm,
+        self: EbpfVm,
         {
             executable,
             callFrames,
         }: { executable: Executable; callFrames: Array<CallFrame> },
-    ): number {
-        const program_result = 0
+    ): bigint {
         const interpreter = Interpreter.new({
-            vm,
+            vm: self,
             executable,
             callFrames,
-            registers: vm.registers,
+            registers: self.registers,
         })
         runInterpreter(interpreter)
-        return program_result
+        return self.programResult
+    },
+
+    /** Invokes a built-in function */
+    invokeFunction(
+        self: EbpfVm,
+        { function_ }: { function_: BuiltinFunction },
+    ) {
+        function_(
+            self,
+            self.registers[0],
+            self.registers[1],
+            self.registers[2],
+            self.registers[3],
+            self.registers[4],
+        )
     },
 }
 
 function runInterpreter(interpreter: Interpreter) {
     while (Interpreter.step(interpreter)) {}
+}
+
+/** Encrypted address to the `EbpfVM` object. */
+export interface EncryptedHostAddressToEbpfVm {
+    0: bigint
+    1: ContextObject
 }

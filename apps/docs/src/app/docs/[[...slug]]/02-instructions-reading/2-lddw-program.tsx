@@ -17,20 +17,14 @@ import { Button } from "@/components/ui/button"
 import { runV3InstructionsWithTracing } from "@/components/micro-vm/v3-harness"
 
 const Slots: Array<InsnRaw> = [
-    { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 0n },
-    { opc: OpCodes.MOV64_IMM, dst: 2n, src: 0n, off: 0n, imm: 3n },
-    { opc: OpCodes.JEQ64_IMM, dst: 2n, src: 0n, off: 6n, imm: 0n },
-    { opc: OpCodes.JGT64_IMM, dst: 2n, src: 0n, off: 2n, imm: 10n },
+    { opc: OpCodes.MOV64_IMM, dst: 1n, src: 0n, off: 0n, imm: 5n },
+    { opc: OpCodes.LD_DW_IMM, dst: 2n, src: 0n, off: 0n, imm: 0x55667788n },
+    { opc: 0x00n, dst: 0n, src: 0n, off: 0n, imm: 0x11223344n },
     { opc: OpCodes.ADD64_REG, dst: 1n, src: 2n, off: 0n, imm: 0n },
-    { opc: OpCodes.JA, dst: 0n, src: 0n, off: 1n, imm: 0n },
-    { opc: OpCodes.ADD64_IMM, dst: 1n, src: 0n, off: 0n, imm: 10n },
-    { opc: OpCodes.SUB64_IMM, dst: 2n, src: 0n, off: 0n, imm: 1n },
-    { opc: OpCodes.JA, dst: 0n, src: 0n, off: -7n, imm: 0n },
-    { opc: OpCodes.MOV64_REG, dst: 0n, src: 1n, off: 0n, imm: 0n },
     { opc: OpCodes.EXIT, dst: 0n, src: 0n, off: 0n, imm: 0n },
 ]
 
-export function SimpleSbpfLoop() {
+export function LddwProgram() {
     const [currentStep, setCurrentStep] = useState(0)
     const { registerTrace } = useMemo(() => {
         return runV3InstructionsWithTracing({ slots: Slots })

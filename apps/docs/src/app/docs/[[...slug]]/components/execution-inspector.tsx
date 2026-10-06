@@ -1,5 +1,5 @@
 "use client"
-import { Insn } from "@/components/micro-vm/ebpf"
+import { InsnRaw } from "@/components/micro-vm/ebpf"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -7,19 +7,19 @@ import {
 } from "@/components/ui/resizable"
 import { cn } from "@/lib/utils"
 import { useMemo, useState } from "react"
-import { FomrattingStyle, formatInstruction } from "./utils"
+import { FormattingStyle, formatInstruction } from "./utils"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function ExecutionInspector({
-    instructions,
+    slots,
     currentStep,
     registerTrace,
 }: {
-    instructions: Array<Insn>
+    slots: Array<InsnRaw>
     currentStep: number
     registerTrace: Array<BigUint64Array>
 }) {
-    const [formatStyle, setFormatStyle] = useState<FomrattingStyle>("NASM")
+    const [formatStyle, setFormatStyle] = useState<FormattingStyle>("NASM")
 
     const currentRegistersState = useMemo(() => {
         return registerTrace[currentStep]
@@ -52,20 +52,16 @@ export function ExecutionInspector({
                     variant="outline"
                     value={[formatStyle]}
                     onValueChange={(value) =>
-                        setFormatStyle(value[0] as FomrattingStyle)
+                        setFormatStyle(value[0] as FormattingStyle)
                     }
                 >
-                    <ToggleGroupItem value="NASM" aria-label="Toggle all">
-                        NASM
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="LLVM" aria-label="Toggle missed">
-                        LLVM
-                    </ToggleGroupItem>
+                    <ToggleGroupItem value="NASM">NASM</ToggleGroupItem>
+                    <ToggleGroupItem value="LLVM">LLVM</ToggleGroupItem>
                 </ToggleGroup>
             </div>
             <ResizablePanel defaultSize="50%">
                 <div className="flex justify-center p-2 flex-col gap-1 ">
-                    {instructions.map((instruction, index) => {
+                    {slots.map((_, index) => {
                         return (
                             <span
                                 key={index}
@@ -78,7 +74,11 @@ export function ExecutionInspector({
                                 )}
                             >
                                 {index}:{" "}
-                                {formatInstruction(instruction, formatStyle)}
+                                {formatInstruction({
+                                    prog: slots,
+                                    pc: BigInt(index),
+                                    style: formatStyle,
+                                })}
                             </span>
                         )
                     })}
