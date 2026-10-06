@@ -9,7 +9,13 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import React, { useCallback, useEffect, useMemo, useState } from "react"
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+} from "react"
 import { Label } from "@/components/ui/label"
 import { WideSlider } from "@/components/custom/wide-slider"
 import { Button } from "@/components/ui/button"
@@ -34,88 +40,20 @@ import { Badge } from "@/components/ui/badge"
 import ELK, { ElkNode, LayoutOptions } from "elkjs/lib/elk.bundled.js"
 import {
     Background,
-    type Connection,
+    Controls,
     type Edge,
+    Handle,
+    MarkerType,
     type Node,
+    type NodeProps,
+    Panel,
     Position,
     ReactFlow,
-    addEdge,
     useNodesState,
-    useEdgesState,
     useReactFlow,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { logger } from "@/lib/logger"
-
-const position = { x: 0, y: 0 }
-
-const initialNodes: Array<Node> = [
-    {
-        id: "1",
-        type: "input",
-        data: { label: "input" },
-        position,
-    },
-    {
-        id: "2",
-        data: { label: "node 2" },
-        position,
-    },
-    {
-        id: "2a",
-        data: { label: "node 2a" },
-        position,
-    },
-    {
-        id: "2b",
-        data: { label: "node 2b" },
-        position,
-    },
-    {
-        id: "2c",
-        data: { label: "node 2c" },
-        position,
-    },
-    {
-        id: "2d",
-        data: { label: "node 2d" },
-        position,
-    },
-    {
-        id: "3",
-        data: { label: "node 3" },
-        position,
-    },
-    {
-        id: "4",
-        data: { label: "node 4" },
-        position,
-    },
-    {
-        id: "5",
-        data: { label: "node 5" },
-        position,
-    },
-    {
-        id: "6",
-        type: "output",
-        data: { label: "output" },
-        position,
-    },
-    { id: "7", type: "output", data: { label: "output" }, position },
-]
-
-const initialEdges: Array<Edge> = [
-    { id: "e12", source: "1", target: "2", type: "smoothstep" },
-    { id: "e13", source: "1", target: "3", type: "smoothstep" },
-    { id: "e22a", source: "2", target: "2a", type: "smoothstep" },
-    { id: "e22b", source: "2", target: "2b", type: "smoothstep" },
-    { id: "e22c", source: "2", target: "2c", type: "smoothstep" },
-    { id: "e2c2d", source: "2c", target: "2d", type: "smoothstep" },
-    { id: "e45", source: "4", target: "5", type: "smoothstep" },
-    { id: "e56", source: "5", target: "6", type: "smoothstep" },
-    { id: "e57", source: "5", target: "7", type: "smoothstep" },
-]
 
 const elk = new ELK()
 
@@ -127,61 +65,148 @@ const elk = new ELK()
 const elkOptions: LayoutOptions = {
     "elk.direction": "DOWN",
     "elk.algorithm": "layered",
-    "elk.layered.spacing.nodeNodeBetweenLayers": "100",
-    "elk.spacing.nodeNode": "80",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "50",
+    "elk.spacing.nodeNode": "40",
 }
 
-const NodeWidth = 150
-const NodeHeight = 50
+const NodeWidth = 240
+// Height of the node card without instructions (header, footer and paddings)
+// and of a single instruction row, to tell ELK how much space a node takes.
+const NodeBaseHeight = 76
+const NodeRowHeight = 16
+
+const PendingEdgeColor = "#6366f1"
+const LinkedEdgeColor = "var(--color-foreground)"
 
 // React Flow and ELK have their own node/edge shapes, so the graph is
 // translated to ELK for the layout and only positions are taken back.
-const getLayoutedElements = async ({
-    nodes,
-    edges,
-    options = elkOptions,
+const getLayoutedNodes = async ({
+    cfgNodes,
 }: {
-    nodes: Array<Node>
-    edges: Array<Edge>
-    options?: LayoutOptions
-}): Promise<{ nodes: Array<Node>; edges: Array<Edge> }> => {
-    const isHorizontal = options["elk.direction"] === "RIGHT"
+    cfgNodes: SortedMap<CfgNode>
+}): Promise<Array<Node>> => {
+    const entries = [...cfgNodes.inner]
     const graph: ElkNode = {
         id: "root",
-        layoutOptions: options,
-        children: nodes.map((node) => ({
-            id: node.id,
-            // Hardcode a width and height for elk to use when layouting.
+        layoutOptions: elkOptions,
+        children: entries.map(([pc, cfgNode]) => ({
+            id: String(pc),
             width: NodeWidth,
-            height: NodeHeight,
+            height:
+                NodeBaseHeight +
+                NodeRowHeight *
+                    (cfgNode.instructions[1] - cfgNode.instructions[0]),
         })),
-        edges: edges.map((edge) => ({
-            id: edge.id,
-            sources: [edge.source],
-            targets: [edge.target],
-        })),
+        edges: entries.flatMap(([pc, cfgNode]) =>
+            cfgNode.destinations
+                .filter((destination) => cfgNodes.inner.has(destination))
+                .map((destination) => ({
+                    id: `${pc}-${destination}`,
+                    sources: [String(pc)],
+                    targets: [String(destination)],
+                })),
+        ),
     }
 
     const layoutedGraph = await elk.layout(graph)
-    const positions = new Map(
-        layoutedGraph.children?.map((node) => [
-            node.id,
-            { x: node.x ?? 0, y: node.y ?? 0 },
-        ]),
+    return (layoutedGraph.children ?? []).map((node) => ({
+        id: node.id,
+        type: "cfgNode",
+        data: {},
+        position: { x: node.x ?? 0, y: node.y ?? 0 },
+    }))
+}
+
+type CfgNodeView = {
+    index: number
+    cfgNode: CfgNode
+    label?: string
+    isActive: boolean
+    /** Whether the destinations pass already went through this node */
+    hasDestinations: boolean
+}
+
+// Positions of the graph nodes are static, their content is taken from here,
+// so stepping doesn't re-create React Flow nodes
+const CfgNodeViewsContext = createContext<Map<string, CfgNodeView>>(new Map())
+
+function CfgNodeCard({ id }: NodeProps) {
+    const view = useContext(CfgNodeViewsContext).get(id)
+    if (!view) return null
+    const { index, cfgNode, label, isActive, hasDestinations } = view
+    const [start, end] = cfgNode.instructions
+    const pcs = Array.from(
+        { length: Math.max(end - start, 0) },
+        (_, offset) => start + offset,
     )
 
-    return {
-        nodes: nodes.map((node) => ({
-            ...node,
-            // Adjust the target and source handle positions based on the layout
-            // direction.
-            targetPosition: isHorizontal ? Position.Left : Position.Top,
-            sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-            position: positions.get(node.id) ?? node.position,
-        })),
-        edges,
-    }
+    return (
+        <div
+            style={{ width: NodeWidth }}
+            className={cn(
+                "rounded-md border bg-background font-mono text-xs transition-colors duration-100",
+                pcs.length === 0
+                    ? "border-dashed text-foreground/50"
+                    : "border-red-600/50 dark:border-red-400/50",
+                isActive && "ring-2 ring-red-950 dark:ring-red-700",
+            )}
+        >
+            <Handle
+                type="target"
+                position={Position.Top}
+                isConnectable={false}
+            />
+            <div
+                className={cn(
+                    "flex justify-between gap-2 border-b border-inherit px-2 py-1 font-semibold",
+                    isActive
+                        ? "bg-red-950 dark:bg-red-700 text-background dark:text-foreground"
+                        : "bg-red-800/15 dark:bg-red-500/15",
+                )}
+            >
+                <span className="truncate">
+                    #{index + 1}
+                    {label && ` ${label}`}
+                </span>
+                <span>pc {id}</span>
+            </div>
+            <div className="flex flex-col px-2 py-1">
+                {pcs.length === 0 ? (
+                    <span>{"<Empty>"}</span>
+                ) : (
+                    pcs.map((pc) => (
+                        <span key={pc} className="truncate">
+                            {pc}:{" "}
+                            {formatInstruction({
+                                prog: Slots,
+                                pc: BigInt(pc),
+                                style: "LLVM",
+                            })}
+                        </span>
+                    ))
+                )}
+            </div>
+            <div className="flex flex-col border-t border-inherit px-2 py-1">
+                <span className="truncate">
+                    sources: [{cfgNode.sources.join(", ")}]
+                </span>
+                <span className="truncate">
+                    destinations:{" "}
+                    {hasDestinations
+                        ? `[${cfgNode.destinations.join(", ")}]`
+                        : "?"}
+                </span>
+            </div>
+            <Handle
+                type="source"
+                position={Position.Bottom}
+                isConnectable={false}
+            />
+        </div>
+    )
 }
+
+const nodeTypes = { cfgNode: CfgNodeCard }
 
 // biome-ignore format: keep all instructions in one line
 const Slots: Array<Insn> = [
@@ -226,37 +251,53 @@ FunctionRegistry.registerFunction(functionRegistry, {
 
 export function GraphVisualization() {
     const [currentStep, setCurrentStep] = useState(0)
-    const { cfgNodes, cfgEdges, destinationsCfgNodeIndex, instructionIndex } =
-        useMemo(() => {
-            let localCurrentStep = currentStep
-            const {
-                cfgNodes: cfgNodesWithDestinations,
-                cfgEdges,
-                instructionIndex,
-                cfgNodeIndex: destinationsCfgNodeIndex,
-            } = getFilteredCfgNodesWithDestinations({
-                slots: Slots,
-                sbpfVersion: Version,
-                functionRegistry,
-                maxStep: localCurrentStep,
-            })
-            let cfgNodes = cfgNodesWithDestinations
-            localCurrentStep =
-                localCurrentStep - instructionIndex - destinationsCfgNodeIndex
-            if (localCurrentStep > 0) {
-                const result = linkCfgNodes({
-                    cfgNodes,
-                    maxStep: localCurrentStep,
-                })
-                cfgNodes = result.cfgNodes
-            }
-            return {
+    const {
+        cfgNodes,
+        cfgEdges,
+        destinationsCfgNodeIndex,
+        instructionIndex,
+        lastEvent,
+        linkingStep,
+    } = useMemo(() => {
+        const {
+            cfgNodes: cfgNodesWithDestinations,
+            cfgEdges,
+            instructionIndex,
+            cfgNodeIndex: destinationsCfgNodeIndex,
+            lastEvent,
+        } = getFilteredCfgNodesWithDestinations({
+            slots: Slots,
+            sbpfVersion: Version,
+            functionRegistry,
+            maxStep: currentStep,
+        })
+        let cfgNodes = cfgNodesWithDestinations
+        // Steps left after instructions and destinations pass go to the sources linking pass
+        const linkingStep = Math.max(
+            currentStep - instructionIndex - destinationsCfgNodeIndex,
+            0,
+        )
+        if (linkingStep > 0) {
+            const result = linkCfgNodes({
                 cfgNodes,
-                cfgEdges,
-                destinationsCfgNodeIndex,
-                instructionIndex,
-            }
-        }, [currentStep])
+                maxStep: linkingStep,
+            })
+            cfgNodes = result.cfgNodes
+        }
+        return {
+            cfgNodes,
+            cfgEdges,
+            destinationsCfgNodeIndex,
+            instructionIndex,
+            lastEvent,
+            linkingStep,
+        }
+    }, [currentStep])
+
+    const isLinking = linkingStep > 0
+    const activeCfgNodeIndex = isLinking
+        ? linkingStep - 1
+        : destinationsCfgNodeIndex
 
     const maxStep = Slots.length + cfgNodes.inner.size * 2 - 1
 
@@ -265,29 +306,110 @@ export function GraphVisualization() {
     }, [cfgNodes])
 
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const { fitView } = useReactFlow()
 
-    const onConnect = useCallback(
-        (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-        [setEdges],
-    )
-
-    // Calculate the initial layout on mount.
+    // The complete graph is layouted once on mount, so the nodes keep their
+    // places while stepping.
     useEffect(() => {
         let cancelled = false
-        getLayoutedElements({ nodes: initialNodes, edges: initialEdges })
-            .then(({ nodes: layoutedNodes, edges: layoutedEdges }) => {
+        const { cfgNodes } = linkCfgNodes({
+            cfgNodes: getFilteredCfgNodesWithDestinations({
+                slots: Slots,
+                sbpfVersion: Version,
+                functionRegistry,
+            }).cfgNodes,
+        })
+        getLayoutedNodes({ cfgNodes })
+            .then((layoutedNodes) => {
                 if (cancelled) return
                 setNodes(layoutedNodes)
-                setEdges(layoutedEdges)
-                void fitView()
             })
             .catch(logger.error)
         return () => {
             cancelled = true
         }
-    }, [setNodes, setEdges, fitView])
+    }, [setNodes])
+
+    // The whole graph is too big to stay readable in the panel, so the
+    // viewport follows the node being processed and its destinations.
+    const isLayouted = nodes.length > 0
+    const focusedPcs = useMemo(() => {
+        const entry = [...cfgNodes.inner][activeCfgNodeIndex]
+        if (!entry) return ""
+        const [pc, { destinations }] = entry
+        return [pc, ...destinations].join(",")
+    }, [cfgNodes, activeCfgNodeIndex])
+    useEffect(() => {
+        if (!isLayouted || !focusedPcs) return
+        void fitView({
+            nodes: focusedPcs.split(",").map((id) => ({ id })),
+            maxZoom: 1,
+            duration: 300,
+        })
+    }, [isLayouted, focusedPcs, fitView])
+
+    const cfgNodeViews = useMemo(
+        () =>
+            new Map<string, CfgNodeView>(
+                [...cfgNodes.inner].map(([pc, cfgNode], index) => {
+                    const labelU8Arr = functionRegistry.map.inner.get(pc)?.[0]
+                    return [
+                        String(pc),
+                        {
+                            index,
+                            cfgNode,
+                            label: labelU8Arr && u8ArrayToString(labelU8Arr),
+                            isActive: index === activeCfgNodeIndex,
+                            hasDestinations:
+                                isLinking ||
+                                index < destinationsCfgNodeIndex ||
+                                (index === destinationsCfgNodeIndex &&
+                                    !!lastEvent &&
+                                    lastEvent.type !== "instruction"),
+                        },
+                    ]
+                }),
+            ),
+        [
+            cfgNodes,
+            activeCfgNodeIndex,
+            destinationsCfgNodeIndex,
+            isLinking,
+            lastEvent,
+        ],
+    )
+
+    // An edge appears once the destinations pass records it at its source node,
+    // and becomes solid once the linking pass records it at its target node
+    const edges = useMemo(
+        () =>
+            [...cfgNodes.inner].flatMap(([pc, cfgNode]) =>
+                cfgNode.destinations.flatMap((destination): Array<Edge> => {
+                    const target = cfgNodes.inner.get(destination)
+                    if (!target) return []
+                    const isLinked = target.sources.includes(pc)
+                    const color = isLinked ? LinkedEdgeColor : PendingEdgeColor
+                    return [
+                        {
+                            id: `${pc}-${destination}`,
+                            source: String(pc),
+                            target: String(destination),
+                            type: "smoothstep",
+                            animated: !isLinked,
+                            style: {
+                                stroke: color,
+                                strokeWidth: isLinked ? 2 : 1,
+                            },
+                            markerEnd: {
+                                type: MarkerType.ArrowClosed,
+                                color,
+                            },
+                        },
+                    ]
+                }),
+            ),
+        [cfgNodes],
+    )
 
     return (
         <Card>
@@ -304,7 +426,7 @@ export function GraphVisualization() {
                     orientation="horizontal"
                     className="relative rounded-lg border"
                 >
-                    <ResizablePanel defaultSize="50%">
+                    <ResizablePanel defaultSize="40%">
                         <div className="relative flex justify-center p-2 flex-col gap-1">
                             {/* <div className="absolute bottom-3 right-3 z-10 opacity-90">
                                             <FormattingSelector
@@ -390,20 +512,59 @@ export function GraphVisualization() {
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize="50%">
+                    <ResizablePanel defaultSize="60%">
                         <ResizablePanelGroup key={1} orientation="vertical">
                             <ResizablePanel defaultSize="70%">
-                                <ReactFlow
-                                    suppressHydrationWarning
-                                    nodes={nodes}
-                                    edges={edges}
-                                    onConnect={onConnect}
-                                    onNodesChange={onNodesChange}
-                                    onEdgesChange={onEdgesChange}
-                                    fitView
-                                >
-                                    <Background />
-                                </ReactFlow>
+                                <div className="h-full min-h-80">
+                                    <CfgNodeViewsContext value={cfgNodeViews}>
+                                        <ReactFlow
+                                            suppressHydrationWarning
+                                            nodes={nodes}
+                                            edges={edges}
+                                            nodeTypes={nodeTypes}
+                                            onNodesChange={onNodesChange}
+                                            nodesConnectable={false}
+                                            minZoom={0.2}
+                                            colorMode="system"
+                                            style={{
+                                                background: "transparent",
+                                            }}
+                                        >
+                                            <Panel
+                                                position="top-left"
+                                                className="flex flex-col gap-1 rounded-md border bg-background/90 p-2 text-xs"
+                                            >
+                                                <span className="font-semibold">
+                                                    {isLinking
+                                                        ? "Pass 2: linking sources"
+                                                        : "Pass 1: instructions and destinations"}
+                                                </span>
+                                                <span className="flex items-center gap-2">
+                                                    <span
+                                                        className="w-6 border-t border-dashed"
+                                                        style={{
+                                                            borderColor:
+                                                                PendingEdgeColor,
+                                                        }}
+                                                    />
+                                                    destination recorded
+                                                </span>
+                                                <span className="flex items-center gap-2">
+                                                    <span
+                                                        className="w-6 border-t-2"
+                                                        style={{
+                                                            borderColor:
+                                                                LinkedEdgeColor,
+                                                        }}
+                                                    />
+                                                    source linked
+                                                </span>
+                                            </Panel>
+                                            <Controls showInteractive={false} />
+                                            <Background />
+                                        </ReactFlow>
+                                    </CfgNodeViewsContext>
+                                </div>
                             </ResizablePanel>
                             <ResizableHandle withHandle />
                             <ResizablePanel
@@ -422,7 +583,7 @@ export function GraphVisualization() {
                                                 ([pc, cfgNode], index) => {
                                                     const isActive =
                                                         index ===
-                                                        destinationsCfgNodeIndex
+                                                        activeCfgNodeIndex
                                                     const destinationsPassedCfgNode =
                                                         index <=
                                                         destinationsCfgNodeIndex
@@ -505,7 +666,7 @@ function linkCfgNodes({
     cfgNodes: SortedMap<CfgNode>
     maxStep?: number
 }) {
-    const maxPossibleStep = cfgNodes.inner.size - 1
+    const maxPossibleStep = cfgNodes.inner.size
     maxStep =
         typeof maxStep === "undefined" || maxStep > maxPossibleStep
             ? maxPossibleStep
