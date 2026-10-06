@@ -430,7 +430,7 @@ export function GraphVisualization() {
                     orientation="vertical"
                     className="relative h-240! rounded-lg border"
                 >
-                    <ResizablePanel defaultSize="35%">
+                    <ResizablePanel defaultSize="50%">
                         <div className="h-full">
                             <CfgNodeViewsContext value={cfgNodeViews}>
                                 <ReactFlow
@@ -483,7 +483,7 @@ export function GraphVisualization() {
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize="65%">
+                    <ResizablePanel defaultSize="50%">
                         <ResizablePanelGroup orientation="horizontal">
                             <ResizablePanel
                                 defaultSize="50%"
