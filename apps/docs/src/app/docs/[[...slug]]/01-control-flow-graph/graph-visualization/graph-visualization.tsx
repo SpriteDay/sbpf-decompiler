@@ -39,8 +39,10 @@ import { Badge } from "@/components/ui/badge"
 import ELK, { ElkNode, LayoutOptions } from "elkjs/lib/elk.bundled.js"
 import {
     Background,
+    BaseEdge,
     Controls,
     type Edge,
+    type EdgeProps,
     Handle,
     MarkerType,
     type Node,
@@ -48,6 +50,7 @@ import {
     Panel,
     Position,
     ReactFlow,
+    type XYPosition,
     useNodesState,
     useReactFlow,
 } from "@xyflow/react"
@@ -67,6 +70,13 @@ const elkOptions: LayoutOptions = {
     "elk.algorithm": "layered",
     "elk.layered.spacing.nodeNodeBetweenLayers": "50",
     "elk.spacing.nodeNode": "40",
+    // Edges are drawn by the routes ELK gives, which go around the nodes
+    "elk.edgeRouting": "ORTHOGONAL",
+    "elk.layered.feedbackEdges": "true",
+    "elk.spacing.edgeNode": "20",
+    "elk.spacing.edgeEdge": "15",
+    "elk.layered.spacing.edgeNodeBetweenLayers": "20",
+    "elk.layered.spacing.edgeEdgeBetweenLayers": "15",
 }
 
 const NodeWidth = 240
@@ -78,13 +88,20 @@ const NodeRowHeight = 16
 const PendingEdgeColor = "#6366f1"
 const LinkedEdgeColor = "var(--color-foreground)"
 
+type CfgFlowNode = Node<{ height: number }, "cfgNode">
+type CfgFlowEdge = Edge<{ points: Array<XYPosition> }, "cfgEdge">
+
 // React Flow and ELK have their own node/edge shapes, so the graph is
-// translated to ELK for the layout and only positions are taken back.
-const getLayoutedNodes = async ({
+// translated to ELK for the layout and only node positions and edge routes
+// are taken back.
+const getLayoutedElements = async ({
     cfgNodes,
 }: {
     cfgNodes: SortedMap<CfgNode>
-}): Promise<Array<Node>> => {
+}): Promise<{
+    nodes: Array<CfgFlowNode>
+    edgeRoutes: Map<string, Array<XYPosition>>
+}> => {
     const entries = [...cfgNodes.inner]
     const graph: ElkNode = {
         id: "root",
@@ -109,13 +126,76 @@ const getLayoutedNodes = async ({
     }
 
     const layoutedGraph = await elk.layout(graph)
-    return (layoutedGraph.children ?? []).map((node) => ({
-        id: node.id,
-        type: "cfgNode",
-        data: {},
-        position: { x: node.x ?? 0, y: node.y ?? 0 },
-    }))
+    return {
+        nodes: (layoutedGraph.children ?? []).map((node) => ({
+            id: node.id,
+            type: "cfgNode",
+            data: { height: node.height ?? 0 },
+            position: { x: node.x ?? 0, y: node.y ?? 0 },
+        })),
+        edgeRoutes: new Map(
+            (layoutedGraph.edges ?? []).flatMap((edge) => {
+                const section = edge.sections?.[0]
+                if (!section) return []
+                return [
+                    [
+                        edge.id,
+                        [
+                            section.startPoint,
+                            ...(section.bendPoints ?? []),
+                            section.endPoint,
+                        ],
+                    ],
+                ]
+            }),
+        ),
+    }
 }
+
+const EdgeCornerRadius = 6
+
+/** SVG path going through the points with rounded corners */
+function getRoundedPath(points: Array<XYPosition>) {
+    return points
+        .map((point, index) => {
+            const previous = points[index - 1]
+            const next = points[index + 1]
+            if (!previous) return `M ${point.x} ${point.y}`
+            if (!next) return `L ${point.x} ${point.y}`
+            // Corner starts and ends a radius away from the bend point
+            const towards = (other: XYPosition) => {
+                const distance = Math.hypot(
+                    other.x - point.x,
+                    other.y - point.y,
+                )
+                const ratio =
+                    distance === 0
+                        ? 0
+                        : Math.min(EdgeCornerRadius, distance / 2) / distance
+                return {
+                    x: point.x + (other.x - point.x) * ratio,
+                    y: point.y + (other.y - point.y) * ratio,
+                }
+            }
+            const start = towards(previous)
+            const end = towards(next)
+            return `L ${start.x} ${start.y} Q ${point.x} ${point.y} ${end.x} ${end.y}`
+        })
+        .join(" ")
+}
+
+function CfgEdgeRoute({ data, markerEnd, style }: EdgeProps<CfgFlowEdge>) {
+    if (!data) return null
+    return (
+        <BaseEdge
+            path={getRoundedPath(data.points)}
+            markerEnd={markerEnd}
+            style={style}
+        />
+    )
+}
+
+const edgeTypes = { cfgEdge: CfgEdgeRoute }
 
 type CfgNodeView = {
     index: number
@@ -130,7 +210,7 @@ type CfgNodeView = {
 // so stepping doesn't re-create React Flow nodes
 const CfgNodeViewsContext = createContext<Map<string, CfgNodeView>>(new Map())
 
-function CfgNodeCard({ id }: NodeProps) {
+function CfgNodeCard({ id, data }: NodeProps<CfgFlowNode>) {
     const view = useContext(CfgNodeViewsContext).get(id)
     if (!view) return null
     const { index, cfgNode, label, isActive, hasDestinations } = view
@@ -142,9 +222,10 @@ function CfgNodeCard({ id }: NodeProps) {
 
     return (
         <div
-            style={{ width: NodeWidth }}
+            // The size is the same as ELK got, so the edge routes end at the borders
+            style={{ width: NodeWidth, height: data.height }}
             className={cn(
-                "rounded-md border bg-background font-mono text-xs transition-colors duration-100",
+                "flex flex-col rounded-md border bg-background font-mono text-xs transition-colors duration-100",
                 pcs.length === 0
                     ? "border-dashed text-foreground/50"
                     : "border-red-600/50 dark:border-red-400/50",
@@ -155,6 +236,7 @@ function CfgNodeCard({ id }: NodeProps) {
                 type="target"
                 position={Position.Top}
                 isConnectable={false}
+                className="opacity-0"
             />
             <div
                 className={cn(
@@ -170,7 +252,7 @@ function CfgNodeCard({ id }: NodeProps) {
                 </span>
                 <span>pc {id}</span>
             </div>
-            <div className="flex flex-col px-2 py-1">
+            <div className="flex grow flex-col px-2 py-1">
                 {pcs.length === 0 ? (
                     <span>{"<Empty>"}</span>
                 ) : (
@@ -201,6 +283,7 @@ function CfgNodeCard({ id }: NodeProps) {
                 type="source"
                 position={Position.Bottom}
                 isConnectable={false}
+                className="opacity-0"
             />
         </div>
     )
@@ -307,7 +390,10 @@ export function GraphVisualization() {
         return groupInstructionsByCfgNodes({ cfgNodes, slots: Slots })
     }, [cfgNodes])
 
-    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+    const [nodes, setNodes, onNodesChange] = useNodesState<CfgFlowNode>([])
+    const [edgeRoutes, setEdgeRoutes] = useState(
+        new Map<string, Array<XYPosition>>(),
+    )
     const { fitView } = useReactFlow()
     // React Flow has to follow the theme of the docs instead of the system one,
     // as it sets its own `dark` class on the canvas
@@ -325,10 +411,11 @@ export function GraphVisualization() {
                 functionRegistry,
             }).cfgNodes,
         })
-        getLayoutedNodes({ cfgNodes })
-            .then((layoutedNodes) => {
+        getLayoutedElements({ cfgNodes })
+            .then(({ nodes: layoutedNodes, edgeRoutes }) => {
                 if (cancelled) return
                 setNodes(layoutedNodes)
+                setEdgeRoutes(edgeRoutes)
             })
             .catch(logger.error)
         return () => {
@@ -390,31 +477,38 @@ export function GraphVisualization() {
     const edges = useMemo(
         () =>
             [...cfgNodes.inner].flatMap(([pc, cfgNode]) =>
-                cfgNode.destinations.flatMap((destination): Array<Edge> => {
-                    const target = cfgNodes.inner.get(destination)
-                    if (!target) return []
-                    const isLinked = target.sources.includes(pc)
-                    const color = isLinked ? LinkedEdgeColor : PendingEdgeColor
-                    return [
-                        {
-                            id: `${pc}-${destination}`,
-                            source: String(pc),
-                            target: String(destination),
-                            type: "smoothstep",
-                            animated: !isLinked,
-                            style: {
-                                stroke: color,
-                                strokeWidth: isLinked ? 2 : 1,
+                cfgNode.destinations.flatMap(
+                    (destination): Array<CfgFlowEdge> => {
+                        const id = `${pc}-${destination}`
+                        const target = cfgNodes.inner.get(destination)
+                        const points = edgeRoutes.get(id)
+                        if (!target || !points) return []
+                        const isLinked = target.sources.includes(pc)
+                        const color = isLinked
+                            ? LinkedEdgeColor
+                            : PendingEdgeColor
+                        return [
+                            {
+                                id,
+                                source: String(pc),
+                                target: String(destination),
+                                type: "cfgEdge",
+                                data: { points },
+                                animated: !isLinked,
+                                style: {
+                                    stroke: color,
+                                    strokeWidth: isLinked ? 2 : 1,
+                                },
+                                markerEnd: {
+                                    type: MarkerType.ArrowClosed,
+                                    color,
+                                },
                             },
-                            markerEnd: {
-                                type: MarkerType.ArrowClosed,
-                                color,
-                            },
-                        },
-                    ]
-                }),
+                        ]
+                    },
+                ),
             ),
-        [cfgNodes],
+        [cfgNodes, edgeRoutes],
     )
 
     return (
@@ -440,7 +534,10 @@ export function GraphVisualization() {
                                     nodes={nodes}
                                     edges={edges}
                                     nodeTypes={nodeTypes}
+                                    edgeTypes={edgeTypes}
                                     onNodesChange={onNodesChange}
+                                    // Edge routes are layouted for the nodes staying in their places
+                                    nodesDraggable={false}
                                     nodesConnectable={false}
                                     minZoom={0.2}
                                     colorMode={colorMode}
