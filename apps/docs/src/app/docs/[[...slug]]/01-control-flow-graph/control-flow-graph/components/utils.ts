@@ -15,11 +15,13 @@ function recordLeadersAndEdges({
     pc,
     functionRegistry,
     sbpfVersion,
+    flattenCallGraph = false,
 }: {
     slots: Array<InsnRaw>
     pc: bigint
     functionRegistry: FunctionRegistry<bigint>
     sbpfVersion: SBPFVersion
+    flattenCallGraph?: boolean
 }): {
     leaders: SortedMap<CfgNode>
     edges: SortedMap<{
@@ -121,8 +123,12 @@ function recordLeadersAndEdges({
                         reason: "start of a basic block at the callee PC",
                     })
                 }
-                // Only recording local function destinations
-                const destinations = [pc + 1n]
+                // Flatten call graph flag means we make one big CFG for the whole program,
+                // disabled flag means we make CFG per each function, so only local
+                // function destinations are recorded
+                const destinations = flattenCallGraph
+                    ? [pc + 1n, targetPc]
+                    : [pc + 1n]
 
                 SortedMap.insert(edges, {
                     key: pc,
@@ -148,7 +154,13 @@ function recordLeadersAndEdges({
                 })
             }
 
-            const destinations = [pc + 1n]
+            // Because callee of CALL_REG is undefined at static analysis time,
+            // we mark potential callee to be anywhere in the program for
+            // flatten call graph case, that's why we insert here a super root
+            const superRoot = BigInt(slots.length)
+            const destinations = flattenCallGraph
+                ? [pc + 1n, superRoot]
+                : [pc + 1n]
             SortedMap.insert(edges, {
                 key: pc,
                 value: { opc: insn.opc, destinations },
@@ -239,11 +251,13 @@ export function accumulateLeadersAndEdges({
     endPc,
     functionRegistry,
     sbpfVersion,
+    flattenCallGraph = false,
 }: {
     slots: Array<InsnRaw>
     endPc: bigint
     functionRegistry: FunctionRegistry<bigint>
     sbpfVersion: SBPFVersion
+    flattenCallGraph?: boolean
 }): {
     leaders: SortedMap<CfgNode>
     edges: SortedMap<{
@@ -273,6 +287,7 @@ export function accumulateLeadersAndEdges({
             pc: BigInt(stepPc),
             functionRegistry,
             sbpfVersion,
+            flattenCallGraph,
         })
         leaders.inner.forEach((val, key) => {
             SortedMap.insert(leadersAcc, { key, value: val })
@@ -294,17 +309,20 @@ export function getFilteredLeadersAndEdges({
     currentStep,
     functionRegistry,
     sbpfVersion,
+    flattenCallGraph = false,
 }: {
     slots: Array<InsnRaw>
     currentStep?: number
     functionRegistry: FunctionRegistry<bigint>
     sbpfVersion: SBPFVersion
+    flattenCallGraph?: boolean
 }) {
     const { leaders, edges } = accumulateLeadersAndEdges({
         slots,
         endPc: BigInt(slots.length - 1),
         functionRegistry,
         sbpfVersion,
+        flattenCallGraph,
     })
 
     if (typeof currentStep === "undefined") {
@@ -393,6 +411,7 @@ export function getFilteredLeadersAndEdges({
             endPc: BigInt(slots.length - 1),
             functionRegistry,
             sbpfVersion,
+            flattenCallGraph,
         }),
         removed,
     }
@@ -556,11 +575,13 @@ export function getFilteredCfgNodesWithDestinations({
     sbpfVersion,
     functionRegistry,
     maxStep,
+    flattenCallGraph = false,
 }: {
     slots: Array<InsnRaw>
     sbpfVersion: SBPFVersion
     functionRegistry: FunctionRegistry<bigint>
     maxStep?: number
+    flattenCallGraph?: boolean
 }) {
     const {
         leaders,
@@ -570,6 +591,7 @@ export function getFilteredCfgNodesWithDestinations({
         slots,
         functionRegistry,
         sbpfVersion,
+        flattenCallGraph,
     })
     const filteredCfgNodes = SortedMap.new<CfgNode>()
     filteredCfgNodes.inner = new Map(

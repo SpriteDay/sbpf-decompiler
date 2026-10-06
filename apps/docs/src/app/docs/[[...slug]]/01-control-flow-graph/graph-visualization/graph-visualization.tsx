@@ -332,7 +332,11 @@ FunctionRegistry.registerFunction(functionRegistry, {
     value: 14n,
 })
 
-export function GraphVisualization() {
+export function GraphVisualization({
+    flattenCallGraph = false,
+}: {
+    flattenCallGraph?: boolean
+}) {
     const [currentStep, setCurrentStep] = useState(0)
     const {
         cfgNodes,
@@ -354,6 +358,7 @@ export function GraphVisualization() {
             sbpfVersion: Version,
             functionRegistry,
             maxStep: currentStep,
+            flattenCallGraph,
         })
         let cfgNodes = cfgNodesWithDestinations
         // Steps left after instructions and destinations pass go to the sources linking pass
@@ -377,7 +382,7 @@ export function GraphVisualization() {
             lastEvent,
             linkingStep,
         }
-    }, [currentStep])
+    }, [currentStep, flattenCallGraph])
 
     const isLinking = linkingStep > 0
     const activeCfgNodeIndex = isLinking
@@ -409,6 +414,7 @@ export function GraphVisualization() {
                 slots: Slots,
                 sbpfVersion: Version,
                 functionRegistry,
+                flattenCallGraph,
             }).cfgNodes,
         })
         getLayoutedElements({ cfgNodes })
@@ -421,7 +427,7 @@ export function GraphVisualization() {
         return () => {
             cancelled = true
         }
-    }, [setNodes])
+    }, [setNodes, flattenCallGraph])
 
     // The whole graph is too big to stay readable in the panel, so the
     // viewport follows the node being processed and its destinations.
