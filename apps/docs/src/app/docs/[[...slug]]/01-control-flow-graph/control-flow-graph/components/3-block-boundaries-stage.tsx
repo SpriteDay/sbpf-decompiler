@@ -9,12 +9,11 @@ import {
 } from "@/components/ui/resizable"
 import { createPortal } from "react-dom"
 import { FormattingSelector } from "../components/formatting-selector"
-import { CfgNode } from "@/components/micro-vm/static-analysis"
+import { u8ArrayToString } from "@/components/micro-vm/dependencies/utils"
 import {
-    SortedMap,
-    u8ArrayToString,
-} from "@/components/micro-vm/dependencies/utils"
-import { getFilteredLeadersAndEdges } from "./utils"
+    getFilteredCfgNodesWithDestinations,
+    groupInstructionsByCfgNodes,
+} from "./utils"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 import { WideSlider } from "@/components/custom/wide-slider"
@@ -26,7 +25,7 @@ export function BlockBoundariesStage({
     functionRegistry,
     sbpfVersion,
     formatStyle,
-    setFormatStyle,
+    setFormatStyle: _,
     leftBlock,
     rightBlock,
 }: {
@@ -41,6 +40,7 @@ export function BlockBoundariesStage({
     rightBlock: HTMLElement
 }) {
     const [currentStep, setCurrentStep] = useState(0)
+
     const {
         cfgNodes,
         cfgEdges,
@@ -49,95 +49,18 @@ export function BlockBoundariesStage({
         cfgEdgeIndex,
         lastEvent,
     } = useMemo(() => {
-        const {
-            leaders,
-            edges: cfgEdges,
-            removed,
-        } = getFilteredLeadersAndEdges({
+        return getFilteredCfgNodesWithDestinations({
             slots,
-            functionRegistry,
             sbpfVersion,
-        })
-        const cfgNodes = SortedMap.new<CfgNode>()
-        cfgNodes.inner = new Map(
-            [...leaders.inner].filter(
-                ([pc, _cfgNode]) =>
-                    !removed.leaders.some(
-                        ({ pc: removedPc }) => pc === removedPc,
-                    ),
-            ),
-        )
-        const functions = FunctionRegistry.default<bigint>()
-        functions.map.inner = new Map(
-            [...functionRegistry.map.inner].filter(
-                ([pc, _]) =>
-                    !removed.functions.some(
-                        ({ pc: removedPc }) => pc === removedPc,
-                    ),
-            ),
-        )
-        return defineInstructionsAndDestinations({
+            functionRegistry,
             maxStep: currentStep,
-            cfgNodes,
-            cfgEdges,
-            slots,
-            functions,
         })
     }, [currentStep, sbpfVersion, slots, functionRegistry])
 
     const maxStep = cfgNodes.inner.size + slots.length - 1
 
     const grouppedSlots = useMemo(() => {
-        const ownershipMap = new Map<number, number>()
-
-        Array.from(cfgNodes.inner).forEach(([_, cfgNode], cfgNodeIndex) => {
-            for (
-                let i = cfgNode.instructions[0];
-                i < cfgNode.instructions[1];
-                i++
-            ) {
-                ownershipMap.set(i, cfgNodeIndex)
-            }
-        })
-
-        const groups: Array<{
-            owner: number | undefined
-            startPc: number
-            slots: Array<InsnRaw>
-        }> = []
-        let currentGroup: {
-            owner: number | undefined
-            startPc: number
-            slots: Array<InsnRaw>
-        } = {
-            owner: 0,
-            startPc: 0,
-            slots: [],
-        }
-        let lastOwner: number | undefined = undefined
-
-        slots.forEach((slot, pc) => {
-            const owner = ownershipMap.get(pc)
-
-            const wasOwnerChanged = owner !== lastOwner
-            if (wasOwnerChanged && currentGroup.slots.length > 0) {
-                groups.push(currentGroup)
-                currentGroup = {
-                    owner,
-                    startPc: pc,
-                    slots: [],
-                }
-            }
-
-            currentGroup.slots.push(slot)
-            lastOwner = owner
-        })
-
-        if (currentGroup.slots.length > 0) {
-            groups.push(currentGroup)
-        }
-
-        return groups
+        return groupInstructionsByCfgNodes({ cfgNodes, slots })
     }, [slots, cfgNodes])
     return (
         <>
@@ -415,157 +338,4 @@ export function BlockBoundariesStage({
             )}
         </>
     )
-}
-
-function defineInstructionsAndDestinations({
-    maxStep,
-    cfgNodes,
-    cfgEdges,
-    slots,
-    functions,
-}: {
-    maxStep: number
-    cfgNodes: SortedMap<CfgNode>
-    cfgEdges: SortedMap<{ opc: bigint; destinations: Array<bigint> }>
-    slots: Array<InsnRaw>
-    functions: FunctionRegistry<bigint>
-}): {
-    cfgNodes: SortedMap<CfgNode>
-    cfgEdges: SortedMap<{ opc: bigint; destinations: Array<bigint> }>
-    instructionIndex: number
-    cfgNodeIndex: number
-    cfgEdgeIndex: number
-    lastEvent:
-        | {
-              type: "instruction"
-              index: number
-              cfgNodeIndex: number
-          }
-        | {
-              type: "destinations-edge"
-              destinations: Array<bigint>
-              sourceEdgePc: bigint
-              cfgNodeIndex: number
-          }
-        | {
-              type: "destinations-fall-through"
-              destination: bigint
-              nextCfgNodeStart: bigint
-              cfgNodeIndex: number
-          }
-        | null
-} {
-    let currentStep = 0
-
-    let instructionIndex = 0
-    let cfgNodeIndex = 0
-    let cfgEdgeIndex = 0
-    // Each index change decrements step counter, so it is possible to control the loop progress
-    let lastEvent: ReturnType<
-        typeof defineInstructionsAndDestinations
-    >["lastEvent"] = null
-
-    while (currentStep <= maxStep) {
-        const entry = Array.from(cfgNodes.inner)[cfgNodeIndex]
-        if (!entry) {
-            return {
-                cfgNodes,
-                cfgEdges,
-                instructionIndex,
-                cfgNodeIndex,
-                cfgEdgeIndex,
-                lastEvent,
-            }
-        }
-        const [_cfgNodeStart, cfgNode] = entry
-        const cfgNodeEnd =
-            cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
-                ? // Next basic block start -1, if there is a next block
-                  Array.from(cfgNodes.inner.entries())[cfgNodeIndex + 1][0] - 1n
-                : // Or the last instruction in the program, if there is no next cfg node
-                  slots.length - 1
-
-        cfgNode.instructions[0] = instructionIndex
-        while (instructionIndex < slots.length) {
-            if (instructionIndex <= cfgNodeEnd) {
-                // Update the end instruction index in our CFG node
-                cfgNode.instructions[1] = instructionIndex + 1
-
-                lastEvent = {
-                    type: "instruction",
-                    index: instructionIndex,
-                    cfgNodeIndex,
-                }
-
-                currentStep++
-                if (currentStep > maxStep) {
-                    return {
-                        cfgNodes,
-                        cfgEdges,
-                        instructionIndex,
-                        cfgNodeIndex,
-                        cfgEdgeIndex,
-                        lastEvent,
-                    }
-                }
-                instructionIndex++
-            } else {
-                break
-            }
-        }
-
-        // If there is a recorded CFG edge within our calculated CFG node boundaries
-        // we copy edge's destinations from the edge to the current CFG node and go
-        // to the next CFG node
-        const nextCfgEdgeEntry = Array.from(cfgEdges.inner)[cfgEdgeIndex]
-        if (nextCfgEdgeEntry && nextCfgEdgeEntry[0] <= cfgNodeEnd) {
-            cfgNode.destinations = [...nextCfgEdgeEntry[1].destinations]
-            lastEvent = {
-                type: "destinations-edge",
-                cfgNodeIndex,
-                sourceEdgePc: nextCfgEdgeEntry[0],
-                destinations: nextCfgEdgeEntry[1].destinations,
-            }
-            cfgEdgeIndex++
-        } else if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
-            const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
-                cfgNodeIndex + 1
-            ]
-            // If we couldn't a corresponding edge - we check whether
-            // the next cfg node is function or no, and if it's not - we specify
-            // the fall through destination to it. We keep CFG Nodes split by functions
-            // for non flatten call graph
-            if (!functions.map.inner.get(nextCfgNodeStart)) {
-                cfgNode.destinations.push(nextCfgNodeStart)
-                lastEvent = {
-                    type: "destinations-fall-through",
-                    destination: nextCfgNodeStart,
-                    nextCfgNodeStart,
-                    cfgNodeIndex,
-                }
-            }
-        }
-        currentStep++
-        if (currentStep > maxStep) {
-            return {
-                cfgNodes,
-                cfgEdges,
-                instructionIndex,
-                cfgNodeIndex,
-                cfgEdgeIndex,
-                lastEvent,
-            }
-        }
-        lastEvent = null
-        cfgNodeIndex++
-    }
-
-    return {
-        cfgNodes,
-        cfgEdges,
-        instructionIndex,
-        cfgNodeIndex,
-        cfgEdgeIndex,
-        lastEvent,
-    }
 }

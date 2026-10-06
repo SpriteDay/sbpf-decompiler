@@ -8,6 +8,7 @@ import { BitExtension } from "./03-bit-extension/2-bit-extension"
 import { MaskOperations } from "./03-bit-extension/3-mask-operations"
 import { ControlFlowGraph } from "./01-control-flow-graph/control-flow-graph/control-flow-graph"
 import { TableOfContent } from "./table-of-content"
+import { GraphVisualization } from "./01-control-flow-graph/graph-visualization/graph-visualization"
 
 export function getMDXComponents(components?: MDXComponents) {
     return {
@@ -20,6 +21,7 @@ export function getMDXComponents(components?: MDXComponents) {
         BitExtension,
         MaskOperations,
         ControlFlowGraph,
+        GraphVisualization,
         ...components,
     } satisfies MDXComponents
 }
