@@ -107,7 +107,7 @@ export function GraphVisualization() {
             }
         }, [currentStep])
 
-    const maxStep = Slots.length + cfgEdges.inner.size * 2 - 1
+    const maxStep = Slots.length + cfgNodes.inner.size * 2 - 1
 
     const grouppedSlots = useMemo(() => {
         return groupInstructionsByCfgNodes({ cfgNodes, slots: Slots })
@@ -127,7 +127,7 @@ export function GraphVisualization() {
                     orientation="horizontal"
                     className="relative rounded-lg border"
                 >
-                    <ResizablePanel defaultSize="55%">
+                    <ResizablePanel defaultSize="50%">
                         <div className="relative flex justify-center p-2 flex-col gap-1">
                             {/* <div className="absolute bottom-3 right-3 z-10 opacity-90">
                                             <FormattingSelector
@@ -213,7 +213,7 @@ export function GraphVisualization() {
                         </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize="45%">
+                    <ResizablePanel defaultSize="50%">
                         <ResizablePanelGroup key={1} orientation="vertical">
                             <ResizablePanel defaultSize="70%"></ResizablePanel>
                             <ResizableHandle withHandle />
