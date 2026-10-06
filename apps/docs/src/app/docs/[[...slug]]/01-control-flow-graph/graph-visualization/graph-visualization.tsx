@@ -274,10 +274,8 @@ export function GraphVisualization() {
         })
         let cfgNodes = cfgNodesWithDestinations
         // Steps left after instructions and destinations pass go to the sources linking pass
-        const linkingStep = Math.max(
-            currentStep - instructionIndex - destinationsCfgNodeIndex,
-            0,
-        )
+        const linkingStep =
+            currentStep - instructionIndex - destinationsCfgNodeIndex
         let linkingCfgNodeIndex: number | undefined = undefined
         if (linkingStep > 0) {
             const result = linkCfgNodes({
