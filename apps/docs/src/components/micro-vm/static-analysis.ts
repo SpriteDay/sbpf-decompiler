@@ -127,6 +127,7 @@ export const Analysis = {
             flattenCallGraph: false,
             sbpfVersion,
         })
+        Analysis.controlFlowGraphTarjan(result)
         return result
     },
 
@@ -477,8 +478,9 @@ export const Analysis = {
                 discovered += 1
             }
             const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
-            for (const [j, destination] of cfgNode.destinations.entries()) {
-                if (j === edgeIndex) continue
+            for (const [j, destination] of [
+                ...cfgNode.destinations.entries(),
+            ].slice(edgeIndex, cfgNode.destinations.length)) {
                 const w = self.cfgNodes.inner.get(destination)!.topoIndex.sccId
                 // Initial state node checl
                 if (nodes[w].discovery === Infinity) {
@@ -492,43 +494,40 @@ export const Analysis = {
                         nodes[w].discovery,
                     )
                 }
-                // Finding SCCs
-                if (nodes[v].discovery === nodes[v].lowlink) {
-                    let indexInScc = 0
-                    // Assigning index inside of SCC
-                    while (sccStack.length > 0) {
-                        const w = sccStack.pop()!
-                        const node = nodes[w]
-                        node.isOnSccStack = false
-                        node.sccId = sccId
-                        node.discovery = indexInScc
-                        indexInScc += 1
-                        if (w === v) {
-                            break
-                        }
+            }
+            // Finding SCCs
+            if (nodes[v].discovery === nodes[v].lowlink) {
+                let indexInScc = 0
+                // Assigning index inside of SCC
+                while (sccStack.length > 0) {
+                    const w = sccStack.pop()!
+                    const node = nodes[w]
+                    node.isOnSccStack = false
+                    node.sccId = sccId
+                    node.discovery = indexInScc
+                    indexInScc += 1
+                    if (w === v) {
+                        break
                     }
-                    sccId += 1
                 }
-                if (recursionStack.length > 0) {
-                    const [w, _] = recursionStack.at(-1)!
-                    nodes[w].lowlink = Math.min(
-                        nodes[w].lowlink,
-                        nodes[v].lowlink,
-                    )
-                } else {
-                    while (true) {
-                        // If exhausted
-                        if (nextV === nodes.length) {
-                            break dfs
-                        }
-                        if (nodes[nextV].discovery === Infinity) {
-                            break
-                        }
-                        nextV += 1
+                sccId += 1
+            }
+            if (recursionStack.length > 0) {
+                const [w, _] = recursionStack.at(-1)!
+                nodes[w].lowlink = Math.min(nodes[w].lowlink, nodes[v].lowlink)
+            } else {
+                while (true) {
+                    // If exhausted
+                    if (nextV === nodes.length) {
+                        break dfs
                     }
-                    recursionStack.push([nextV, 0])
+                    if (nodes[nextV].discovery === Infinity) {
+                        break
+                    }
                     nextV += 1
                 }
+                recursionStack.push([nextV, 0])
+                nextV += 1
             }
         }
         for (const node of nodes) {
@@ -564,8 +563,8 @@ export const Analysis = {
                 })
             const nextV = self.topologicalOrder[index + 1]
             if (
-                !nextV ||
-                (nextV &&
+                typeof nextV === "undefined" ||
+                (typeof nextV !== "undefined" &&
                     self.cfgNodes.inner.get(nextV)?.topoIndex.sccId !==
                         cfgNode?.topoIndex.sccId)
             ) {
@@ -584,7 +583,10 @@ export const Analysis = {
             if (!entry) {
                 const name = `function_${v}`
                 const hash = hashSymbolName(stringToU8Array(name))
-                return [hash, name]
+                SortedMap.insert(self.functions, {
+                    key: v,
+                    value: [BigInt(hash), name],
+                })
             }
         }
         SortedMap.insert(self.cfgNodes, {
