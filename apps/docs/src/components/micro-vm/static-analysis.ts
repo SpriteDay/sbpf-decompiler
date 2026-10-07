@@ -1,7 +1,42 @@
-import { SortedMap, u8ArrayToString } from "./dependencies/utils"
-import { augmentLddwUnchecked, getInsnUnchecked, Insn, OpCodes } from "./ebpf"
+import {
+    SortedMap,
+    stringToU8Array,
+    u8ArrayToString,
+} from "./dependencies/utils"
+import {
+    augmentLddwUnchecked,
+    getInsnUnchecked,
+    hashSymbolName,
+    Insn,
+    OpCodes,
+} from "./ebpf"
 import { Executable } from "./elf"
 import { SBPFFeatures, SBPFVersion } from "./program"
+
+/** Used for topological sort */
+export interface TopologicalIndex {
+    /** Strongly connected component ID (https://en.wikipedia.org/wiki/Strongly_connected_component) */
+    sccId: number
+    /** Discovery order inside a strongly connected component (https://en.wikipedia.org/wiki/Depth-first_search) */
+    discovery: number
+}
+
+export const TopologicalIndex = {
+    default(): TopologicalIndex {
+        return {
+            sccId: Infinity,
+            discovery: Infinity,
+        }
+    },
+
+    cmp(self: TopologicalIndex, other: TopologicalIndex): number {
+        let result = Number(self.sccId - other.sccId)
+        if (result === 0) {
+            result = Number(self.discovery - other.discovery)
+        }
+        return result
+    },
+}
 
 /** A node of the control-flow graph */
 export interface CfgNode {
@@ -13,6 +48,8 @@ export interface CfgNode {
     destinations: Array<bigint>
     /** Range of the instructions belonging to this basic block */
     instructions: [number, number]
+    /** Topological index */
+    topoIndex: TopologicalIndex
 }
 
 export const CfgNode = {
@@ -22,6 +59,7 @@ export const CfgNode = {
             sources: [],
             destinations: [],
             instructions: [0, 0],
+            topoIndex: TopologicalIndex.default(),
         }
     },
 }
@@ -36,6 +74,8 @@ export interface Analysis {
     functions: SortedMap<[bigint, string]>
     /** Nodes of the control-flow graph */
     cfgNodes: SortedMap<CfgNode>
+    /** Topological order of cfgNodes */
+    topologicalOrder: Array<bigint>
     /** Virtual CfgNode that reaches all functions */
     superRoot: bigint
 }
@@ -80,12 +120,14 @@ export const Analysis = {
             instructions,
             functions,
             cfgNodes: SortedMap.new(),
+            topologicalOrder: [],
             superRoot: insnPtr,
         }
         Analysis.splitIntoBasicBlocks(result, {
             flattenCallGraph: false,
             sbpfVersion,
         })
+        Analysis.controlFlowGraphTarjan(result)
         return result
     },
 
@@ -386,5 +428,170 @@ export const Analysis = {
             }
             Analysis.linkCfgEdges(self, { cfgEdges, bothDirections: true })
         }
+    },
+
+    /**
+     * Finds the strongly connected components
+     *
+     * Generates a topological order as by-product
+     *
+     * https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+     */
+    controlFlowGraphTarjan(self: Analysis) {
+        if (self.cfgNodes.inner.size === 0) {
+            return
+        }
+        interface NodeState {
+            cfgNode: bigint
+            discovery: number
+            lowlink: number
+            sccId: number
+            isOnSccStack: boolean
+        }
+
+        // Convert each CFG node into Tarjan-ready node state
+        const nodes = [...self.cfgNodes.inner].map(([key, cfgNode], v) => {
+            cfgNode.topoIndex.sccId = v
+            const result: NodeState = {
+                cfgNode: key,
+                discovery: Infinity,
+                lowlink: Infinity,
+                sccId: Infinity,
+                isOnSccStack: false,
+            }
+            return result
+        })
+
+        let sccId = 0
+        const sccStack: Array<number> = []
+        let discovered = 0
+        let nextV = 1
+        const recursionStack: Array<[number, number]> = [[0, 0]]
+        dfs: while (recursionStack.length > 0) {
+            const [v, edgeIndex] = recursionStack.pop()!
+            const node = nodes[v]
+            if (edgeIndex === 0) {
+                node.discovery = discovered
+                node.lowlink = discovered
+                node.isOnSccStack = true
+                sccStack.push(v)
+                discovered += 1
+            }
+            const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
+            for (const [j, destination] of [
+                ...cfgNode.destinations.entries(),
+            ].slice(edgeIndex, cfgNode.destinations.length)) {
+                const w = self.cfgNodes.inner.get(destination)!.topoIndex.sccId
+                // Initial state node checl
+                if (nodes[w].discovery === Infinity) {
+                    recursionStack.push([v, j + 1])
+                    recursionStack.push([w, 0])
+                    continue dfs
+                } else if (nodes[w].isOnSccStack) {
+                    // Assigning min low link value - refer to Tarjan's algorithm
+                    nodes[v].lowlink = Math.min(
+                        nodes[v].lowlink,
+                        nodes[w].discovery,
+                    )
+                }
+            }
+            // Finding SCCs
+            if (nodes[v].discovery === nodes[v].lowlink) {
+                let indexInScc = 0
+                // Assigning index inside of SCC
+                while (sccStack.length > 0) {
+                    const w = sccStack.pop()!
+                    const node = nodes[w]
+                    node.isOnSccStack = false
+                    node.sccId = sccId
+                    node.discovery = indexInScc
+                    indexInScc += 1
+                    if (w === v) {
+                        break
+                    }
+                }
+                sccId += 1
+            }
+            if (recursionStack.length > 0) {
+                const [w, _] = recursionStack.at(-1)!
+                nodes[w].lowlink = Math.min(nodes[w].lowlink, nodes[v].lowlink)
+            } else {
+                while (true) {
+                    // If exhausted
+                    if (nextV === nodes.length) {
+                        break dfs
+                    }
+                    if (nodes[nextV].discovery === Infinity) {
+                        break
+                    }
+                    nextV += 1
+                }
+                recursionStack.push([nextV, 0])
+                nextV += 1
+            }
+        }
+        for (const node of nodes) {
+            const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
+            cfgNode.topoIndex = {
+                sccId: node.sccId,
+                discovery: node.discovery,
+            }
+        }
+        const topologicalOrder = [...self.cfgNodes.inner.keys()]
+        topologicalOrder.sort((a, b) => {
+            return TopologicalIndex.cmp(
+                self.cfgNodes.inner.get(b)!.topoIndex,
+                self.cfgNodes.inner.get(a)!.topoIndex,
+            )
+        })
+        self.topologicalOrder = topologicalOrder
+        const superRoot: CfgNode = {
+            ...CfgNode.default(),
+            instructions: [self.instructions.length, self.instructions.length],
+        }
+        let firstNode = self.topologicalOrder[0]
+        let hasExternalSource = false
+        for (const [index, v] of self.topologicalOrder.entries()) {
+            const cfgNode = self.cfgNodes.inner.get(v)
+            hasExternalSource =
+                hasExternalSource ||
+                !!cfgNode?.sources.some((source) => {
+                    return (
+                        self.cfgNodes.inner.get(source)?.topoIndex.sccId !==
+                        cfgNode.topoIndex.sccId
+                    )
+                })
+            const nextV = self.topologicalOrder[index + 1]
+            if (
+                typeof nextV === "undefined" ||
+                (typeof nextV !== "undefined" &&
+                    self.cfgNodes.inner.get(nextV)?.topoIndex.sccId !==
+                        cfgNode?.topoIndex.sccId)
+            ) {
+                if (!hasExternalSource && firstNode !== self.superRoot) {
+                    superRoot.destinations.push(firstNode)
+                }
+                firstNode = self.topologicalOrder[index + 1]
+                hasExternalSource = false
+            }
+        }
+        // Populating function registry with found functions
+        for (const v of superRoot.destinations) {
+            const cfgNode = self.cfgNodes.inner.get(v)
+            cfgNode?.sources.push(self.superRoot)
+            const entry = self.functions.inner.get(v)
+            if (!entry) {
+                const name = `function_${v}`
+                const hash = hashSymbolName(stringToU8Array(name))
+                SortedMap.insert(self.functions, {
+                    key: v,
+                    value: [BigInt(hash), name],
+                })
+            }
+        }
+        SortedMap.insert(self.cfgNodes, {
+            key: self.superRoot,
+            value: superRoot,
+        })
     },
 }
