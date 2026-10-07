@@ -1,5 +1,15 @@
-import { SortedMap, u8ArrayToString } from "./dependencies/utils"
-import { augmentLddwUnchecked, getInsnUnchecked, Insn, OpCodes } from "./ebpf"
+import {
+    SortedMap,
+    stringToU8Array,
+    u8ArrayToString,
+} from "./dependencies/utils"
+import {
+    augmentLddwUnchecked,
+    getInsnUnchecked,
+    hashSymbolName,
+    Insn,
+    OpCodes,
+} from "./ebpf"
 import { Executable } from "./elf"
 import { SBPFFeatures, SBPFVersion } from "./program"
 
@@ -64,6 +74,8 @@ export interface Analysis {
     functions: SortedMap<[bigint, string]>
     /** Nodes of the control-flow graph */
     cfgNodes: SortedMap<CfgNode>
+    /** Topological order of cfgNodes */
+    topologicalOrder: Array<bigint>
     /** Virtual CfgNode that reaches all functions */
     superRoot: bigint
 }
@@ -108,6 +120,7 @@ export const Analysis = {
             instructions,
             functions,
             cfgNodes: SortedMap.new(),
+            topologicalOrder: [],
             superRoot: insnPtr,
         }
         Analysis.splitIntoBasicBlocks(result, {
@@ -518,5 +531,65 @@ export const Analysis = {
                 }
             }
         }
+        for (const node of nodes) {
+            const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
+            cfgNode.topoIndex = {
+                sccId: node.sccId,
+                discovery: node.discovery,
+            }
+        }
+        const topologicalOrder = [...self.cfgNodes.inner.keys()]
+        topologicalOrder.sort((a, b) => {
+            return TopologicalIndex.cmp(
+                self.cfgNodes.inner.get(b)!.topoIndex,
+                self.cfgNodes.inner.get(a)!.topoIndex,
+            )
+        })
+        self.topologicalOrder = topologicalOrder
+        const superRoot: CfgNode = {
+            ...CfgNode.default(),
+            instructions: [self.instructions.length, self.instructions.length],
+        }
+        let firstNode = self.topologicalOrder[0]
+        let hasExternalSource = false
+        for (const [index, v] of self.topologicalOrder.entries()) {
+            const cfgNode = self.cfgNodes.inner.get(v)
+            hasExternalSource =
+                hasExternalSource ||
+                !!cfgNode?.sources.some((source) => {
+                    return (
+                        self.cfgNodes.inner.get(source)?.topoIndex.sccId !==
+                        cfgNode.topoIndex.sccId
+                    )
+                })
+            const nextV = self.topologicalOrder[index + 1]
+            if (
+                !nextV ||
+                (nextV &&
+                    self.cfgNodes.inner.get(nextV)?.topoIndex.sccId !==
+                        cfgNode?.topoIndex.sccId)
+            ) {
+                if (!hasExternalSource && firstNode !== self.superRoot) {
+                    superRoot.destinations.push(firstNode)
+                }
+                firstNode = self.topologicalOrder[index + 1]
+                hasExternalSource = false
+            }
+        }
+        // Populating function registry with found functions
+        for (const v of superRoot.destinations) {
+            const cfgNode = self.cfgNodes.inner.get(v)
+            cfgNode?.sources.push(self.superRoot)
+            const entry = self.functions.inner.get(v)
+            if (!entry) {
+                const name = `function_${v}`
+                const hash = hashSymbolName(stringToU8Array(name))
+                return [hash, name]
+            }
+        }
+        SortedMap.insert(self.cfgNodes, {
+            key: self.superRoot,
+            value: superRoot,
+        })
     },
 }
