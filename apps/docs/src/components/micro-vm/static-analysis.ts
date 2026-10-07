@@ -6,16 +6,16 @@ import { SBPFFeatures, SBPFVersion } from "./program"
 /** Used for topological sort */
 export interface TopologicalIndex {
     /** Strongly connected component ID (https://en.wikipedia.org/wiki/Strongly_connected_component) */
-    sccId: bigint
+    sccId: number
     /** Discovery order inside a strongly connected component (https://en.wikipedia.org/wiki/Depth-first_search) */
-    discovery: bigint
+    discovery: number
 }
 
 export const TopologicalIndex = {
     default(): TopologicalIndex {
         return {
-            sccId: BigInt.asUintN(64, -1n),
-            discovery: BigInt.asUintN(65, -1n),
+            sccId: Infinity,
+            discovery: Infinity,
         }
     },
 
@@ -429,29 +429,94 @@ export const Analysis = {
         }
         interface NodeState {
             cfgNode: bigint
-            discovery: bigint
-            lowlink: bigint
-            sccId: bigint
+            discovery: number
+            lowlink: number
+            sccId: number
             isOnSccStack: boolean
         }
 
         // Convert each CFG node into Tarjan-ready node state
         const nodes = [...self.cfgNodes.inner].map(([key, cfgNode], v) => {
-            cfgNode.topoIndex.sccId = BigInt(v)
+            cfgNode.topoIndex.sccId = v
             const result: NodeState = {
                 cfgNode: key,
-                discovery: BigInt.asUintN(64, -1n),
-                lowlink: BigInt.asUintN(64, -1n),
-                sccId: BigInt.asUintN(64, -1n),
+                discovery: Infinity,
+                lowlink: Infinity,
+                sccId: Infinity,
                 isOnSccStack: false,
             }
+            return result
         })
 
         let sccId = 0
-        const sccStack: Array<bigint> = []
+        const sccStack: Array<number> = []
         let discovered = 0
         let nextV = 1
-        const recursionStack: Array<[bigint, bigint]> = [[0n, 0n]]
-        dfs: while (recursionStack.length > 0) {}
+        const recursionStack: Array<[number, number]> = [[0, 0]]
+        dfs: while (recursionStack.length > 0) {
+            const [v, edgeIndex] = recursionStack.pop()!
+            const node = nodes[v]
+            if (edgeIndex === 0) {
+                node.discovery = discovered
+                node.lowlink = discovered
+                node.isOnSccStack = true
+                sccStack.push(v)
+                discovered += 1
+            }
+            const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
+            for (const [j, destination] of cfgNode.destinations.entries()) {
+                if (j === edgeIndex) continue
+                const w = self.cfgNodes.inner.get(destination)!.topoIndex.sccId
+                // Initial state node checl
+                if (nodes[w].discovery === Infinity) {
+                    recursionStack.push([v, j + 1])
+                    recursionStack.push([w, 0])
+                    continue dfs
+                } else if (nodes[w].isOnSccStack) {
+                    // Assigning min low link value - refer to Tarjan's algorithm
+                    nodes[v].lowlink = Math.min(
+                        nodes[v].lowlink,
+                        nodes[w].discovery,
+                    )
+                }
+                // Finding SCCs
+                if (nodes[v].discovery === nodes[v].lowlink) {
+                    let indexInScc = 0
+                    // Assigning index inside of SCC
+                    while (sccStack.length > 0) {
+                        const w = sccStack.pop()!
+                        const node = nodes[w]
+                        node.isOnSccStack = false
+                        node.sccId = sccId
+                        node.discovery = indexInScc
+                        indexInScc += 1
+                        if (w === v) {
+                            break
+                        }
+                    }
+                    sccId += 1
+                }
+                if (recursionStack.length > 0) {
+                    const [w, _] = recursionStack.at(-1)!
+                    nodes[w].lowlink = Math.min(
+                        nodes[w].lowlink,
+                        nodes[v].lowlink,
+                    )
+                } else {
+                    while (true) {
+                        // If exhausted
+                        if (nextV === nodes.length) {
+                            break dfs
+                        }
+                        if (nodes[nextV].discovery === Infinity) {
+                            break
+                        }
+                        nextV += 1
+                    }
+                    recursionStack.push([nextV, 0])
+                    nextV += 1
+                }
+            }
+        }
     },
 }
