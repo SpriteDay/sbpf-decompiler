@@ -52,6 +52,37 @@ export interface CfgNode {
     topoIndex: TopologicalIndex
 }
 
+/** An instruction or Phi node of the data-flow graph */
+type DfgNode =
+    | {
+          type: "InstructionNode"
+          inner: bigint
+      }
+    | {
+          type: "PhiNode"
+          inner: bigint
+      }
+
+/** The register or memory location a data-flow edge guards */
+type DataResource =
+    | {
+          type: "Register"
+          inner: number
+      }
+    | {
+          type: "Memory"
+      }
+
+/**
+ * The kind of a data-flow edge
+ * - Filled: This kind represents data-flow edges which actually carry data,
+ * e.g. the destination reads a resource, written by the source
+ *
+ * - Empty: This kind incurrs to actual data-flow
+ * e.g. the destination overwrites a resource, written by the source
+ */
+type DfdEdgeKind = "Filled" | "Empty"
+
 export const CfgNode = {
     default(): CfgNode {
         return {
@@ -594,4 +625,10 @@ export const Analysis = {
             value: superRoot,
         })
     },
+
+    /** Conntect the dependenices between the instructions inside of the basic blocks */
+    intraBasicBlockDataFlow(
+        self: Analysis,
+        { sbpfVersion }: { sbpfVersion: SBPFVersion },
+    ): SortedMap<Record<DataResource, bigint>> {},
 }
