@@ -3,6 +3,31 @@ import { augmentLddwUnchecked, getInsnUnchecked, Insn, OpCodes } from "./ebpf"
 import { Executable } from "./elf"
 import { SBPFFeatures, SBPFVersion } from "./program"
 
+/** Used for topological sort */
+export interface TopologicalIndex {
+    /** Strongly connected component ID (https://en.wikipedia.org/wiki/Strongly_connected_component) */
+    sccId: bigint
+    /** Discovery order inside a strongly connected component (https://en.wikipedia.org/wiki/Depth-first_search) */
+    discovery: bigint
+}
+
+export const TopologicalIndex = {
+    default(): TopologicalIndex {
+        return {
+            sccId: BigInt.asUintN(64, -1n),
+            discovery: BigInt.asUintN(65, -1n),
+        }
+    },
+
+    cmp(self: TopologicalIndex, other: TopologicalIndex): number {
+        let result = Number(self.sccId - other.sccId)
+        if (result === 0) {
+            result = Number(self.discovery - other.discovery)
+        }
+        return result
+    },
+}
+
 /** A node of the control-flow graph */
 export interface CfgNode {
     /** Human readable name */
@@ -13,6 +38,8 @@ export interface CfgNode {
     destinations: Array<bigint>
     /** Range of the instructions belonging to this basic block */
     instructions: [number, number]
+    /** Topological index */
+    topoIndex: TopologicalIndex
 }
 
 export const CfgNode = {
@@ -22,6 +49,7 @@ export const CfgNode = {
             sources: [],
             destinations: [],
             instructions: [0, 0],
+            topoIndex: TopologicalIndex.default(),
         }
     },
 }
@@ -386,5 +414,44 @@ export const Analysis = {
             }
             Analysis.linkCfgEdges(self, { cfgEdges, bothDirections: true })
         }
+    },
+
+    /**
+     * Finds the strongly connected components
+     *
+     * Generates a topological order as by-product
+     *
+     * https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+     */
+    controlFlowGraphTarjan(self: Analysis) {
+        if (self.cfgNodes.inner.size === 0) {
+            return
+        }
+        interface NodeState {
+            cfgNode: bigint
+            discovery: bigint
+            lowlink: bigint
+            sccId: bigint
+            isOnSccStack: boolean
+        }
+
+        // Convert each CFG node into Tarjan-ready node state
+        const nodes = [...self.cfgNodes.inner].map(([key, cfgNode], v) => {
+            cfgNode.topoIndex.sccId = BigInt(v)
+            const result: NodeState = {
+                cfgNode: key,
+                discovery: BigInt.asUintN(64, -1n),
+                lowlink: BigInt.asUintN(64, -1n),
+                sccId: BigInt.asUintN(64, -1n),
+                isOnSccStack: false,
+            }
+        })
+
+        let sccId = 0
+        const sccStack: Array<bigint> = []
+        let discovered = 0
+        let nextV = 1
+        const recursionStack: Array<[bigint, bigint]> = [[0n, 0n]]
+        dfs: while (recursionStack.length > 0) {}
     },
 }
