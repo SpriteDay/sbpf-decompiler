@@ -48,6 +48,20 @@ export const Ordering = {
 
 export type Ordering = (typeof Ordering)[keyof typeof Ordering]
 
+export const unknownToString = (obj: unknown): string => {
+    if (typeof obj === "string") {
+        return obj
+    } else if (typeof obj === "object") {
+        try {
+            return JSON.stringify(obj, null, 2)
+        } catch {
+            return String(obj)
+        }
+    } else {
+        return String(obj)
+    }
+}
+
 /** Replacement of Rust's BTreeMap */
 export interface SortedMap<V> {
     inner: Map<bigint, V>
@@ -72,6 +86,40 @@ export const SortedMap = {
 }
 
 /** Replacement of Rust's BTreeSet */
-export interface SortedSet<K, V> {
-    map: Map<K, V>
+export interface SortedSet<V> {
+    inner: Map<string, V>
+    orderMap: Map<string, number>
+}
+export const SortedSet = {
+    new<V>(): SortedSet<V> {
+        return {
+            inner: new Map<string, V>(),
+            orderMap: new Map<string, number>(),
+        }
+    },
+    sort<V>(self: SortedSet<V>) {
+        const entries = [...self.inner].sort(
+            ([a], [b]) => self.orderMap.get(a)! - self.orderMap.get(b)!,
+        )
+        self.inner.clear()
+        for (const [key, value] of entries) {
+            self.inner.set(key, value)
+        }
+        return self.inner
+    },
+    /** Returns true if element is inserted, false if an element was already in the set */
+    insert<V>(self: SortedSet<V>, { value }: { value: V }): boolean {
+        const newKey = unknownToString(value)
+        let biggestExistingIndex = 0
+        for (const [key, orderIndex] of [...self.orderMap]) {
+            if (newKey === key) {
+                return false
+            }
+            biggestExistingIndex = Math.max(biggestExistingIndex, orderIndex)
+        }
+        self.inner.set(newKey, value)
+        self.orderMap.set(newKey, biggestExistingIndex + 1)
+        SortedSet.sort(self)
+        return true
+    },
 }
