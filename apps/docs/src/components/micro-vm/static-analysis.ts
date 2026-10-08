@@ -655,9 +655,12 @@ export const Analysis = {
                     basicBlock.instructions[0],
                     basicBlock.instructions[1],
                 )) {
-                    switch (insn.opc) {
+                    switch (true) {
                         // V2 reuses lgeacy arithmetic opcodes for memory accesses
-                        case OpCodes.LD_8B_REG: {
+                        case insn.opc === OpCodes.LD_8B_REG &&
+                            SBPFFeatures.moveMemoryInstructionClasses(
+                                sbpfVersion,
+                            ): {
                             bind({
                                 state,
                                 insn,
@@ -678,6 +681,7 @@ export const Analysis = {
                             })
                             break
                         }
+                        case insn.opc === OpCodes
                     }
                 }
                 const deps = state.dataResourcesMap

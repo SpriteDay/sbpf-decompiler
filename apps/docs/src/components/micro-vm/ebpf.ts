@@ -39,6 +39,8 @@ const BPF_LD = 0b0000_0_000n
 const BPF_ALU32_LOAD = 0b0000_0_100n
 /** BPF operation class: 64 bit control flow. */
 const BPF_JMP64 = 0b0000_0_101n
+/** BPF operation class: product / quotient / reminder */
+const BPF_PQR = 0x0000_0_110n
 /** BPF operation class: 64 bit arithmetic or store. */
 const BPF_ALU64_STORE = 0b0000_0_111n
 
@@ -114,6 +116,9 @@ export const OpCodes = {
     ADD64_REG: BPF_ALU64_STORE | BPF_X | BPF_ADD,
     /** BPF opcode: `sub64, dst, imm` | `dst -= imm` */
     SUB64_IMM: BPF_ALU64_STORE | BPF_K | BPF_SUB,
+
+    /** BPF opcode: `lmul64 dst, imm` | `dst = (dst * imm) as u64 */
+    LMUL64_IMM: BPF_PQR | BPF_B | BPF_K | BPF_LMUL,
 
     /** BPF opcode: `ja +off` | `PC += off` */
     JA: BPF_JMP64 | BPF_JA,
