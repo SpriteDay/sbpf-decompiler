@@ -116,6 +116,19 @@ export const Interpreter = {
                 break
             }
 
+            // BPF_LDX class
+            case OpCodes.LD_B_REG: {
+                const vmAddr = BigInt.asUintN(
+                    64,
+                    BigInt.asIntN(64, self.reg[src]) + insn.off,
+                )
+                self.reg[dst] = MemoryMapping.load(self.vm.memoryMapping, {
+                    vmAddr,
+                    size: 1,
+                })
+                break
+            }
+
             // BPF_ALU32_LOAD class
             case OpCodes.LD_8B_REG: {
                 if (

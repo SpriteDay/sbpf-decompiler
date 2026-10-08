@@ -50,6 +50,13 @@ export function formatInstruction({
             }
             break
         }
+        case OpCodes.LD_B_REG: {
+            formatted = {
+                "LLVM": `r${dst} = (r${src} + ${off}) as u8`,
+                "NASM": `ldxdw r${dst}, [r${src}+${off}]`,
+            }
+            break
+        }
         case OpCodes.LD_8B_REG: {
             formatted = {
                 "LLVM": `r${dst} = (r${src} + ${off}) as u64`,

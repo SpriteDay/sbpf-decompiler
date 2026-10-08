@@ -35,6 +35,8 @@ export const MM_INPUT_START = MM_REGION_SIZE * 4n
 // Three least significant bits are operation class:
 /** BPF operation class: load from immideate */
 const BPF_LD = 0b0000_0_000n
+/** BPF operation class: load from register */
+const BPF_LDX = 0b0000_0_001n
 /** BPF operation class: 32 bit airthmetic or load. */
 const BPF_ALU32_LOAD = 0b0000_0_100n
 /** BPF operation class: 64 bit control flow. */
@@ -62,6 +64,8 @@ const BPF_8B = 0b100_10_000n
 // Mode modifiers:
 /** BPF mode modifier: immediate value. */
 const BPF_IMM = 0b000_00_000n
+/** BPF mode modifier: load from / store to memory */
+const BPF_MEM = 0b011_00_000n
 
 // For arithmetic (BPF_ALU/BPF_ALU64_STORE) and jump (BPF_JUMP64) instructions:
 // +----------------+-------+------------+
@@ -111,6 +115,8 @@ const BPF_EXIT = 0b1001_0_000n
 export const OpCodes = {
     /** BPF opcode: `lddw dst, imm` | `dst = imm` */
     LD_DW_IMM: BPF_LD | BPF_IMM | BPF_DW,
+    /** BPF opcode: `ldxb dst, [src + off]` | `dst = (src + off) as u8 */
+    LD_B_REG: BPF_LDX | BPF_MEM | BPF_B,
     /** BPF opcode: `ldxdw dst, [src+off]` | `dst = (src + off) as u64` */
     LD_8B_REG: BPF_ALU32_LOAD | BPF_X | BPF_8B,
 

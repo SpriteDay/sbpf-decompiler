@@ -688,14 +688,14 @@ export const Analysis = {
                                     : SBPFFeatures.callxUsesDstReg(sbpfVersion)
                                       ? insn.dst
                                       : insn.imm
-                                bind({ state, insn, isOutput: false, resource: { type: "Register", inner: target, } })
-                                bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
-                                bind({ state, insn, isOutput: true, resource: { type: "Memory" } })
-                                for (const reg of [0n, 1n, 2n, 3n, 4n, 5n, 10n]) {
-                                    bind({ state, insn, isOutput: false, resource: { type: "Register", inner: reg } })
-                                    bind({ state, insn, isOutput: true, resource: { type: "Register", inner: reg } })
-                                } 
+                                bind({ state, insn, isOutput: false, resource: { type: "Register", inner: target } })
                             }
+                            bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Memory" } })
+                            for (const reg of [0n, 1n, 2n, 3n, 4n, 5n, 10n]) {
+                                bind({ state, insn, isOutput: false, resource: { type: "Register", inner: reg } })
+                                bind({ state, insn, isOutput: true, resource: { type: "Register", inner: reg } })
+                            } 
                             break
                         }
                         case insn.opc === OpCodes.EXIT: {
@@ -706,10 +706,10 @@ export const Analysis = {
                             break
                         }
                         case insn.opc === OpCodes.LD_DW_IMM && !SBPFFeatures.disableLddw(sbpfVersion): {
-                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.dst } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
                             break
                         }
-                        case insn.opc === OpCodes.LD_8B_REG: {
+                        case insn.opc === OpCodes.LD_B_REG: {
                             bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
                             bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.src } })
                             bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
