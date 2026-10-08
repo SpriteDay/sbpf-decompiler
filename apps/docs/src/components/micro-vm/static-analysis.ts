@@ -1,9 +1,5 @@
-import {
-    SortedMap,
-    SortedSet,
-    stringToU8Array,
-    u8ArrayToString,
-} from "./dependencies/utils"
+import { SortedMap, SortedSet } from "./dependencies/data-structures"
+import { stringToU8Array, u8ArrayToString } from "./dependencies/utils"
 import {
     augmentLddwUnchecked,
     getInsnUnchecked,
@@ -115,18 +111,15 @@ export interface Analysis {
     /** Plain list of instructions as they occur in the executable */
     instructions: Array<Insn>
     /** Functions in the executable */
-    functions: SortedMap<[bigint, string]>
+    functions: SortedMap<bigint, [bigint, string]>
     /** Nodes of the control-flow graph */
-    cfgNodes: SortedMap<CfgNode>
+    cfgNodes: SortedMap<bigint, CfgNode>
     /** Topological order of cfgNodes */
     topologicalOrder: Array<bigint>
     /** Virtual CfgNode that reaches all functions */
     superRoot: bigint
     /** Data flow edges (the keys are DfgEdge source) */
-    dfgForwardEdges: Map<
-        `${DfgNode["type"]}${DfgNode["inner"]}`,
-        SortedSet<DfgEdge>
-    >
+    dfgForwardEdges: SortedMap<DfgNode, SortedSet<DfgEdge>>
 }
 
 export const Analysis = {
@@ -134,14 +127,11 @@ export const Analysis = {
     fromExecutable({ executable }: { executable: Executable }): Analysis {
         const slots = executable.slots
         const sbpfVersion = executable.sbpfVersion
-        const functions = SortedMap.new<[bigint, string]>()
-        executable.functionRegistry.map.inner
+        const functions = new SortedMap<bigint, [bigint, string]>()
+        executable.functionRegistry.inner
             .entries()
             .forEach(([key, [functionName, pc]]) => {
-                SortedMap.insert(functions, {
-                    key: pc,
-                    value: [key, u8ArrayToString(functionName)],
-                })
+                functions.insert(pc, [key, u8ArrayToString(functionName)])
             })
 
         const instructions: Array<Insn> = []
@@ -168,10 +158,10 @@ export const Analysis = {
             executable,
             instructions,
             functions,
-            cfgNodes: SortedMap.new(),
+            cfgNodes: new SortedMap(),
             topologicalOrder: [],
             superRoot: insnPtr,
-            dfgForwardEdges: new Map(),
+            dfgForwardEdges: new SortedMap(),
         }
         Analysis.splitIntoBasicBlocks(result, {
             flattenCallGraph: false,
@@ -194,13 +184,13 @@ export const Analysis = {
         for (const { 0: source, 1: destinations } of cfgEdges) {
             // Put destinations into the source if both directions flag is true
             if (bothDirections) {
-                const cfgNode = self.cfgNodes.inner.get(source)
+                const cfgNode = self.cfgNodes.get(source)
                 if (cfgNode) {
                     cfgNode.destinations = destinations
                 }
             }
             for (const destination of destinations) {
-                self.cfgNodes.inner.get(destination)?.sources.push(source)
+                self.cfgNodes.get(destination)?.sources.push(source)
             }
         }
     },
@@ -218,19 +208,19 @@ export const Analysis = {
         }: { flattenCallGraph?: boolean; sbpfVersion: SBPFVersion },
     ) {
         // Starting CFG node at PC: 0
-        SortedMap.insert(self.cfgNodes, { key: 0n, value: CfgNode.default() })
+        self.cfgNodes.insert(0n, CfgNode.default())
         // Loop through the functions to create CFG node for each of them - labeled functions
         // are considered basic block leaders
-        for (const pc of self.functions.inner.keys()) {
-            if (!self.cfgNodes.inner.get(pc)) {
-                SortedMap.insert(self.cfgNodes, {
-                    key: pc,
-                    value: CfgNode.default(),
-                })
+        for (const pc of self.functions.keys()) {
+            if (!self.cfgNodes.get(pc)) {
+                self.cfgNodes.insert(pc, CfgNode.default())
             }
         }
         // Edges = "ends" of the basic blocks, we store PC and array of potential destinations
-        const cfgEdges = SortedMap.new<{ 0: bigint; 1: Array<bigint> }>()
+        const cfgEdges = new SortedMap<
+            bigint,
+            { 0: bigint; 1: Array<bigint> }
+        >()
         for (const insn of self.instructions) {
             const targetPc = BigInt.asUintN(
                 64,
@@ -243,7 +233,7 @@ export const Analysis = {
                         { pc: insn.ptr, imm: insn.imm },
                     )
                     const entry =
-                        self.executable.functionRegistry.map.inner.get(key)
+                        self.executable.functionRegistry.inner.get(key)
                     let targetPc: bigint | undefined = undefined
                     if (
                         entry &&
@@ -264,18 +254,15 @@ export const Analysis = {
                     }
                     if (typeof targetPc !== "undefined") {
                         // Mark start of a basic block at the fall-through PC
-                        if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
-                            SortedMap.insert(self.cfgNodes, {
-                                key: insn.ptr + 1n,
-                                value: CfgNode.default(),
-                            })
+                        if (!self.cfgNodes.get(insn.ptr + 1n)) {
+                            self.cfgNodes.insert(
+                                insn.ptr + 1n,
+                                CfgNode.default(),
+                            )
                         }
                         // Mark start of a basic block at the callee PC
-                        if (!self.cfgNodes.inner.get(targetPc)) {
-                            SortedMap.insert(self.cfgNodes, {
-                                key: targetPc,
-                                value: CfgNode.default(),
-                            })
+                        if (!self.cfgNodes.get(targetPc)) {
+                            self.cfgNodes.insert(targetPc, CfgNode.default())
                         }
                         // Flatten call graph flag means we make one big CFG for the whole program,
                         // disabled flag means we make CFG per each function
@@ -283,21 +270,15 @@ export const Analysis = {
                             ? [insn.ptr + 1n, targetPc]
                             : [insn.ptr + 1n]
 
-                        SortedMap.insert(cfgEdges, {
-                            key: insn.ptr,
-                            value: [insn.opc, destinations],
-                        })
+                        cfgEdges.insert(insn.ptr, [insn.opc, destinations])
                     }
 
                     break
                 }
                 case OpCodes.CALL_REG: {
                     // Abnormal CFG edge
-                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
-                        SortedMap.insert(self.cfgNodes, {
-                            key: insn.ptr + 1n,
-                            value: CfgNode.default(),
-                        })
+                    if (!self.cfgNodes.get(insn.ptr + 1n)) {
+                        self.cfgNodes.insert(insn.ptr + 1n, CfgNode.default())
                     }
                     // Because callee of CALL_REG is undefined at static analysis time,
                     // we mark potential callee to be anywhere in the program for
@@ -305,150 +286,121 @@ export const Analysis = {
                     const destinations = flattenCallGraph
                         ? [insn.ptr + 1n, self.superRoot]
                         : [insn.ptr + 1n]
-                    SortedMap.insert(cfgEdges, {
-                        key: insn.ptr,
-                        value: [insn.opc, destinations],
-                    })
+                    cfgEdges.insert(insn.ptr, [insn.opc, destinations])
                     break
                 }
                 case OpCodes.EXIT: {
-                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
-                        SortedMap.insert(self.cfgNodes, {
-                            key: insn.ptr + 1n,
-                            value: CfgNode.default(),
-                        })
+                    if (!self.cfgNodes.get(insn.ptr + 1n)) {
+                        self.cfgNodes.insert(insn.ptr + 1n, CfgNode.default())
                     }
                     // No destinations for EXIT opcode
-                    SortedMap.insert(cfgEdges, {
-                        key: insn.ptr,
-                        value: [insn.opc, []],
-                    })
+                    cfgEdges.insert(insn.ptr, [insn.opc, []])
                     break
                 }
                 case OpCodes.JA: {
-                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
-                        SortedMap.insert(self.cfgNodes, {
-                            key: insn.ptr + 1n,
-                            value: CfgNode.default(),
-                        })
+                    if (!self.cfgNodes.get(insn.ptr + 1n)) {
+                        self.cfgNodes.insert(insn.ptr + 1n, CfgNode.default())
                     }
-                    if (!self.cfgNodes.inner.get(targetPc)) {
-                        SortedMap.insert(self.cfgNodes, {
-                            key: targetPc,
-                            value: CfgNode.default(),
-                        })
+                    if (!self.cfgNodes.get(targetPc)) {
+                        self.cfgNodes.insert(targetPc, CfgNode.default())
                     }
-                    SortedMap.insert(cfgEdges, {
-                        key: insn.ptr,
-                        value: [insn.opc, [targetPc]],
-                    })
+                    cfgEdges.insert(insn.ptr, [insn.opc, [targetPc]])
                     break
                 }
                 case OpCodes.JEQ64_IMM:
                 case OpCodes.JGT64_IMM: {
-                    if (!self.cfgNodes.inner.get(insn.ptr + 1n)) {
-                        SortedMap.insert(self.cfgNodes, {
-                            key: insn.ptr + 1n,
-                            value: CfgNode.default(),
-                        })
+                    if (!self.cfgNodes.get(insn.ptr + 1n)) {
+                        self.cfgNodes.insert(insn.ptr + 1n, CfgNode.default())
                     }
-                    if (!self.cfgNodes.inner.get(targetPc)) {
-                        SortedMap.insert(self.cfgNodes, {
-                            key: targetPc,
-                            value: CfgNode.default(),
-                        })
+                    if (!self.cfgNodes.get(targetPc)) {
+                        self.cfgNodes.insert(targetPc, CfgNode.default())
                     }
-                    SortedMap.insert(cfgEdges, {
-                        key: insn.ptr,
-                        value: [insn.opc, [insn.ptr + 1n, targetPc]],
-                    })
+                    cfgEdges.insert(insn.ptr, [
+                        insn.opc,
+                        [insn.ptr + 1n, targetPc],
+                    ])
                     break
                 }
             }
         }
 
         // Filtering cfg nodes, cfg edges and functions
-        self.cfgNodes.inner = new Map(
-            self.cfgNodes.inner.entries().filter(([cfgNodeStart, _cfgNode]) => {
-                return self.instructions.find((insn) => {
-                    return insn.ptr === cfgNodeStart
-                })
-            }),
+        self.cfgNodes.replace(
+            new Map(
+                self.cfgNodes.entries().filter(([cfgNodeStart, _cfgNode]) => {
+                    return self.instructions.find((insn) => {
+                        return insn.ptr === cfgNodeStart
+                    })
+                }),
+            ),
         )
 
-        for (const [_key, cfgEdge] of cfgEdges.inner) {
+        for (const [_key, cfgEdge] of cfgEdges) {
             cfgEdge[1] = cfgEdge[1].filter((destination) => {
-                return self.cfgNodes.inner.has(destination)
+                return self.cfgNodes.has(destination)
             })
         }
 
-        self.functions.inner = new Map(
-            self.functions.inner.entries().filter(([functionStart, _]) => {
-                return self.cfgNodes.inner.has(functionStart)
-            }),
+        self.functions.replace(
+            new Map(
+                self.functions.entries().filter(([functionStart, _]) => {
+                    return self.cfgNodes.has(functionStart)
+                }),
+            ),
         )
 
         // Defining instruction range and destinations for each CFG node
         let instructionIndex = 0
         let cfgEdgeIterCounter = 0
-        self.cfgNodes.inner
-            .entries()
-            .forEach(([_cfgNodeStart, cfgNode], index) => {
-                const cfgNodeEnd =
-                    index + 1 < Array.from(self.cfgNodes.inner).length
-                        ? // Next basic block start - 1, if there is a next block
-                          Array.from(self.cfgNodes.inner.entries())[
-                              index + 1
-                          ][0] - 1n
-                        : // Or just the last instruction in the program
-                          self.instructions[self.instructions.length - 1].ptr
+        self.cfgNodes.entries().forEach(([_cfgNodeStart, cfgNode], index) => {
+            const cfgNodeEnd =
+                index + 1 < Array.from(self.cfgNodes).length
+                    ? // Next basic block start - 1, if there is a next block
+                      Array.from(self.cfgNodes.entries())[index + 1][0] - 1n
+                    : // Or just the last instruction in the program
+                      self.instructions[self.instructions.length - 1].ptr
 
-                // Defining the range of instructions included in this CFG node
-                cfgNode.instructions[0] = instructionIndex
-                while (instructionIndex < self.instructions.length) {
-                    if (self.instructions[instructionIndex].ptr <= cfgNodeEnd) {
-                        instructionIndex += 1
-                        // Update the end instruction index in our CFG node
-                        cfgNode.instructions[1] = instructionIndex
-                    } else {
-                        break
-                    }
+            // Defining the range of instructions included in this CFG node
+            cfgNode.instructions[0] = instructionIndex
+            while (instructionIndex < self.instructions.length) {
+                if (self.instructions[instructionIndex].ptr <= cfgNodeEnd) {
+                    instructionIndex += 1
+                    // Update the end instruction index in our CFG node
+                    cfgNode.instructions[1] = instructionIndex
+                } else {
+                    break
                 }
+            }
 
-                // If there is a recorded CFG edge within our calculated CFG node boundaries,
-                // we copy edge's destinations from the edge to the current CFG node and continue the loop
-                if (
-                    cfgEdgeIterCounter <
-                    Array.from(cfgEdges.inner.entries()).length
-                ) {
-                    const nextCfgEdge = Array.from(cfgEdges.inner.entries())[
-                        cfgEdgeIterCounter
-                    ]
-                    if (nextCfgEdge[0] <= cfgNodeEnd) {
-                        cfgNode.destinations = [...nextCfgEdge[1][1]]
-                        cfgEdgeIterCounter++
-                        return
-                    }
+            // If there is a recorded CFG edge within our calculated CFG node boundaries,
+            // we copy edge's destinations from the edge to the current CFG node and continue the loop
+            if (cfgEdgeIterCounter < Array.from(cfgEdges.entries()).length) {
+                const nextCfgEdge = Array.from(cfgEdges.entries())[
+                    cfgEdgeIterCounter
+                ]
+                if (nextCfgEdge[0] <= cfgNodeEnd) {
+                    cfgNode.destinations = [...nextCfgEdge[1][1]]
+                    cfgEdgeIterCounter++
+                    return
                 }
-                // If there was no CFG edge within our CFG node bounadries, then if the next cfg start is
-                // not a function (we keep CFG nodes split by function boundaries), we record fall-through
-                // destination to the next block
-                if (index + 1 < Array.from(self.cfgNodes.inner).length) {
-                    const nextCfgNode = Array.from(self.cfgNodes.inner)[
-                        index + 1
-                    ]
-                    // If the next block is not a known function - we also record a fall-through to it
-                    // The check for function is not enforced by runtime - it's something we do to simplify
-                    // function detection at the Tarjan step
-                    if (!self.functions.inner.get(nextCfgNode[0])) {
-                        cfgNode.destinations.push(nextCfgNode[0])
-                    }
+            }
+            // If there was no CFG edge within our CFG node bounadries, then if the next cfg start is
+            // not a function (we keep CFG nodes split by function boundaries), we record fall-through
+            // destination to the next block
+            if (index + 1 < Array.from(self.cfgNodes).length) {
+                const nextCfgNode = Array.from(self.cfgNodes)[index + 1]
+                // If the next block is not a known function - we also record a fall-through to it
+                // The check for function is not enforced by runtime - it's something we do to simplify
+                // function detection at the Tarjan step
+                if (!self.functions.get(nextCfgNode[0])) {
+                    cfgNode.destinations.push(nextCfgNode[0])
                 }
-            })
+            }
+        })
 
         // Record every node that have some other node as destination, as a source of this node
         Analysis.linkCfgEdges(self, {
-            cfgEdges: [...self.cfgNodes.inner].map(([source, cfgNode]) => ({
+            cfgEdges: [...self.cfgNodes].map(([source, cfgNode]) => ({
                 0: source,
                 1: [...cfgNode.destinations],
             })),
@@ -458,13 +410,12 @@ export const Analysis = {
         if (flattenCallGraph) {
             let destinations: Array<bigint> = []
             const cfgEdges: Array<{ 0: bigint; 1: Array<bigint> }> = []
-            for (const { 0: source, 1: cfgNode } of self.cfgNodes.inner) {
-                if (self.functions.inner.has(source)) {
+            for (const { 0: source, 1: cfgNode } of self.cfgNodes) {
+                if (self.functions.has(source)) {
                     destinations = cfgNode.sources.map(
                         (destination) =>
                             self.instructions[
-                                self.cfgNodes.inner.get(destination)!
-                                    .instructions[1]
+                                self.cfgNodes.get(destination)!.instructions[1]
                             ].ptr,
                     )
                 }
@@ -488,7 +439,7 @@ export const Analysis = {
      * https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
      */
     controlFlowGraphTarjan(self: Analysis) {
-        if (self.cfgNodes.inner.size === 0) {
+        if (self.cfgNodes.size === 0) {
             return
         }
         interface NodeState {
@@ -500,7 +451,7 @@ export const Analysis = {
         }
 
         // Convert each CFG node into Tarjan-ready node state
-        const nodes = [...self.cfgNodes.inner].map(([key, cfgNode], v) => {
+        const nodes = [...self.cfgNodes].map(([key, cfgNode], v) => {
             cfgNode.topoIndex.sccId = v
             const result: NodeState = {
                 cfgNode: key,
@@ -527,11 +478,11 @@ export const Analysis = {
                 sccStack.push(v)
                 discovered += 1
             }
-            const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
+            const cfgNode = self.cfgNodes.get(node.cfgNode)!
             for (const [j, destination] of [
                 ...cfgNode.destinations.entries(),
             ].slice(edgeIndex, cfgNode.destinations.length)) {
-                const w = self.cfgNodes.inner.get(destination)!.topoIndex.sccId
+                const w = self.cfgNodes.get(destination)!.topoIndex.sccId
                 // Initial state node checl
                 if (nodes[w].discovery === Infinity) {
                     recursionStack.push([v, j + 1])
@@ -581,17 +532,17 @@ export const Analysis = {
             }
         }
         for (const node of nodes) {
-            const cfgNode = self.cfgNodes.inner.get(node.cfgNode)!
+            const cfgNode = self.cfgNodes.get(node.cfgNode)!
             cfgNode.topoIndex = {
                 sccId: node.sccId,
                 discovery: node.discovery,
             }
         }
-        const topologicalOrder = [...self.cfgNodes.inner.keys()]
+        const topologicalOrder = [...self.cfgNodes.keys()]
         topologicalOrder.sort((a, b) => {
             return TopologicalIndex.cmp(
-                self.cfgNodes.inner.get(b)!.topoIndex,
-                self.cfgNodes.inner.get(a)!.topoIndex,
+                self.cfgNodes.get(b)!.topoIndex,
+                self.cfgNodes.get(a)!.topoIndex,
             )
         })
         self.topologicalOrder = topologicalOrder
@@ -602,12 +553,12 @@ export const Analysis = {
         let firstNode = self.topologicalOrder[0]
         let hasExternalSource = false
         for (const [index, v] of self.topologicalOrder.entries()) {
-            const cfgNode = self.cfgNodes.inner.get(v)
+            const cfgNode = self.cfgNodes.get(v)
             hasExternalSource =
                 hasExternalSource ||
                 !!cfgNode?.sources.some((source) => {
                     return (
-                        self.cfgNodes.inner.get(source)?.topoIndex.sccId !==
+                        self.cfgNodes.get(source)?.topoIndex.sccId !==
                         cfgNode.topoIndex.sccId
                     )
                 })
@@ -615,7 +566,7 @@ export const Analysis = {
             if (
                 typeof nextV === "undefined" ||
                 (typeof nextV !== "undefined" &&
-                    self.cfgNodes.inner.get(nextV)?.topoIndex.sccId !==
+                    self.cfgNodes.get(nextV)?.topoIndex.sccId !==
                         cfgNode?.topoIndex.sccId)
             ) {
                 if (!hasExternalSource && firstNode !== self.superRoot) {
@@ -627,29 +578,23 @@ export const Analysis = {
         }
         // Populating function registry with found functions
         for (const v of superRoot.destinations) {
-            const cfgNode = self.cfgNodes.inner.get(v)
+            const cfgNode = self.cfgNodes.get(v)
             cfgNode?.sources.push(self.superRoot)
-            const entry = self.functions.inner.get(v)
+            const entry = self.functions.get(v)
             if (!entry) {
                 const name = `function_${v}`
                 const hash = hashSymbolName(stringToU8Array(name))
-                SortedMap.insert(self.functions, {
-                    key: v,
-                    value: [BigInt(hash), name],
-                })
+                self.functions.insert(v, [BigInt(hash), name])
             }
         }
-        SortedMap.insert(self.cfgNodes, {
-            key: self.superRoot,
-            value: superRoot,
-        })
+        self.cfgNodes.insert(self.superRoot, superRoot)
     },
 
     /** Conntect the dependenices between the instructions inside of the basic blocks */
     intraBasicBlockDataFlow(
         self: Analysis,
         { sbpfVersion }: { sbpfVersion: SBPFVersion },
-    ): SortedMap<Map<`${DataResource["type"]}${bigint}`, bigint>> {
+    ): SortedMap<bigint, Map<DataResource, bigint>> {
         const bind = ({
             state,
             insn,
@@ -658,14 +603,8 @@ export const Analysis = {
         }: {
             state: {
                 basicBlockStart: bigint
-                dfgEdgesMap: Map<
-                    `${DfgNode["type"]}${DfgNode["inner"]}`,
-                    SortedSet<DfgEdge>
-                >
-                dataResourcesMap: Map<
-                    `${DataResource["type"]}${bigint}`,
-                    bigint
-                >
+                dfgEdgesMap: SortedMap<DfgNode, SortedSet<DfgEdge>>
+                dataResourcesMap: Map<DataResource, bigint>
             }
             insn: Insn
             isOutput: boolean
@@ -674,14 +613,10 @@ export const Analysis = {
             const kind: DfgEdgeKind = isOutput ? "Empty" : "Filled"
 
             const source: DfgNode =
-                typeof state.dataResourcesMap.get(
-                    `${resource.type}${resource.type === "Register" ? resource.inner : 0n}`,
-                ) !== "undefined"
+                typeof state.dataResourcesMap.get(resource) !== "undefined"
                     ? {
                           type: "InstructionNode",
-                          inner: state.dataResourcesMap.get(
-                              `${resource.type}${resource.type === "Register" ? resource.inner : 0n}`,
-                          )!,
+                          inner: state.dataResourcesMap.get(resource)!,
                       }
                     : { type: "PhiNode", inner: state.basicBlockStart }
 
@@ -690,44 +625,32 @@ export const Analysis = {
                 inner: insn.ptr,
             }
 
-            if (!state.dfgEdgesMap.get(`${source.type}${source.inner}`)) {
-                state.dfgEdgesMap.set(
-                    `${source.type}${source.inner}`,
-                    SortedSet.new(),
-                )
+            if (!state.dfgEdgesMap.get(source)) {
+                state.dfgEdgesMap.insert(source, SortedSet.new())
             }
-            SortedSet.insert(
-                state.dfgEdgesMap.get(`${source.type}${source.inner}`)!,
-                {
-                    value: {
-                        source,
-                        destination,
-                        kind,
-                        resource,
-                    },
+            SortedSet.insert(state.dfgEdgesMap.get(source)!, {
+                value: {
+                    source,
+                    destination,
+                    kind,
+                    resource,
                 },
-            )
+            })
             if (isOutput) {
-                state.dataResourcesMap.set(
-                    `${resource.type}${resource.type === "Register" ? resource.inner : 0n}`,
-                    insn.ptr,
-                )
+                state.dataResourcesMap.set(resource, insn.ptr)
             }
         }
         const state: {
             basicBlockStart: bigint
-            dfgEdgesMap: Map<
-                `${DfgNode["type"]}${DfgNode["inner"]}`,
-                SortedSet<DfgEdge>
-            >
-            dataResourcesMap: Map<`${DataResource["type"]}${bigint}`, bigint>
+            dfgEdgesMap: SortedMap<DfgNode, SortedSet<DfgEdge>>
+            dataResourcesMap: Map<DataResource, bigint>
         } = {
             basicBlockStart: 0n,
-            dfgEdgesMap: new Map(),
+            dfgEdgesMap: new SortedMap(),
             dataResourcesMap: new Map(),
         }
 
-        const dataDependenciesArr = [...self.cfgNodes.inner].map(
+        const dataDependenciesArr = [...self.cfgNodes].map(
             ([basicBlockStart, basicBlock]) => {
                 state.basicBlockStart = basicBlockStart
                 for (const insn of self.instructions.slice(
@@ -764,10 +687,12 @@ export const Analysis = {
                 return { 0: basicBlockStart, 1: deps }
             },
         )
-        const dataDependencies =
-            SortedMap.new<Map<`${DataResource["type"]}${bigint}`, bigint>>()
+        const dataDependencies = new SortedMap<
+            bigint,
+            Map<DataResource, bigint>
+        >()
         dataDependenciesArr.forEach(({ 0: key, 1: val }) => {
-            SortedMap.insert(dataDependencies, { key, value: val })
+            dataDependencies.insert(key, val)
         })
         self.dfgForwardEdges = state.dfgEdgesMap
         return dataDependencies

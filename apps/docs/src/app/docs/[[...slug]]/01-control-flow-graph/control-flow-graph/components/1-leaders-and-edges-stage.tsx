@@ -56,15 +56,15 @@ export function LeadersAndEdgesStage({
                         />
                     </div>
                     {slots.map((_, index) => {
-                        const labelU8Arr = functionRegistry.map.inner.get(
+                        const labelU8Arr = functionRegistry.inner.get(
                             BigInt(index),
                         )?.[0]
-                        const isLeader = !!leaders.inner.get(BigInt(index))
+                        const isLeader = !!leaders.get(BigInt(index))
                         const isFreshLeader = changes.leaders.some(
                             (val) => val.pc === BigInt(index),
                         )
 
-                        const isEdge = !!edges.inner.get(BigInt(index))
+                        const isEdge = !!edges.get(BigInt(index))
                         const isFreshEdge = changes.edges.some(
                             (val) => val.pc === BigInt(index),
                         )
@@ -126,12 +126,12 @@ export function LeadersAndEdgesStage({
                         <div className="flex justify-center p-2 flex-col gap-1">
                             <p>
                                 Leaders:{" "}
-                                {leaders.inner.size === 0 ? (
+                                {leaders.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(leaders.inner).map(([pc, _]) => {
+                                    Array.from(leaders).map(([pc, _]) => {
                                         const isFreshLeader =
                                             changes.leaders.some(
                                                 (val) => val.pc === BigInt(pc),
@@ -156,12 +156,12 @@ export function LeadersAndEdgesStage({
                             </p>
                             <p>
                                 Edges:{" "}
-                                {edges.inner.size === 0 ? (
+                                {edges.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(edges.inner).map(([pc, _]) => {
+                                    Array.from(edges).map(([pc, _]) => {
                                         const isFreshEdge = changes.edges.some(
                                             (val) => val.pc === BigInt(pc),
                                         )

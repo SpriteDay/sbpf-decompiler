@@ -46,11 +46,7 @@ export function FilteringStage({
         })
     }, [slots, functionRegistry, sbpfVersion, currentStep])
 
-    const maxStep =
-        leaders.inner.size +
-        edges.inner.size +
-        functionRegistry.map.inner.size -
-        1
+    const maxStep = leaders.size + edges.size + functionRegistry.inner.size - 1
     return (
         <>
             {createPortal(
@@ -62,11 +58,11 @@ export function FilteringStage({
                         />
                     </div>
                     {slots.map((_, index) => {
-                        const labelU8Arr = functionRegistry.map.inner.get(
+                        const labelU8Arr = functionRegistry.inner.get(
                             BigInt(index),
                         )?.[0]
-                        const isLeader = !!leaders.inner.get(BigInt(index))
-                        const isEdge = !!edges.inner.get(BigInt(index))
+                        const isLeader = !!leaders.get(BigInt(index))
+                        const isEdge = !!edges.get(BigInt(index))
                         const isRemoved =
                             isLeader &&
                             removed.leaders.some(
@@ -112,12 +108,12 @@ export function FilteringStage({
                         <div className="flex justify-center p-2 flex-col gap-1">
                             <p>
                                 Leaders:{" "}
-                                {leaders.inner.size === 0 ? (
+                                {leaders.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(leaders.inner).map(
+                                    Array.from(leaders).map(
                                         ([pc, _], index) => {
                                             const isActive =
                                                 index === currentStep
@@ -149,48 +145,45 @@ export function FilteringStage({
                             </p>
                             <p>
                                 Edges:{" "}
-                                {edges.inner.size === 0 ? (
+                                {edges.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(edges.inner).map(
-                                        ([pc, _], index) => {
-                                            const isActive =
-                                                index + leaders.inner.size ===
-                                                currentStep
-                                            return (
-                                                <Badge
-                                                    className={cn(
-                                                        "text-foreground me-1 mb-1",
-                                                        isActive
-                                                            ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
-                                                            : "bg-indigo-800/15 dark:bg-indigo-500/15",
-                                                    )}
-                                                    key={pc}
-                                                >
-                                                    {pc}
-                                                </Badge>
-                                            )
-                                        },
-                                    )
+                                    Array.from(edges).map(([pc, _], index) => {
+                                        const isActive =
+                                            index + leaders.size === currentStep
+                                        return (
+                                            <Badge
+                                                className={cn(
+                                                    "text-foreground me-1 mb-1",
+                                                    isActive
+                                                        ? "bg-indigo-950 dark:bg-indigo-700 text-background dark:text-foreground"
+                                                        : "bg-indigo-800/15 dark:bg-indigo-500/15",
+                                                )}
+                                                key={pc}
+                                            >
+                                                {pc}
+                                            </Badge>
+                                        )
+                                    })
                                 )}
                             </p>
                             <p>
                                 Functions:{" "}
-                                {functionRegistry.map.inner.size === 0 ? (
+                                {functionRegistry.inner.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(functionRegistry.map.inner).map(
+                                    Array.from(functionRegistry.inner).map(
                                         ([key, [nameU8, _]], index) => {
                                             const label =
                                                 u8ArrayToString(nameU8)
                                             const isActive =
                                                 index +
-                                                    leaders.inner.size +
-                                                    edges.inner.size ===
+                                                    leaders.size +
+                                                    edges.size ===
                                                 currentStep
                                             const isRemoved =
                                                 removed.functions.some(

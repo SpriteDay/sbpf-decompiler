@@ -1,9 +1,5 @@
-import {
-    SortedMap,
-    stringToU8Array,
-    toU32,
-    usizeToLeBytes,
-} from "./dependencies/utils"
+import { SortedMap } from "./dependencies/data-structures"
+import { stringToU8Array, toU32, usizeToLeBytes } from "./dependencies/utils"
 import { hashSymbolName } from "./ebpf"
 import { Config, EbpfVm, EncryptedHostAddressToEbpfVm } from "./vm"
 
@@ -114,13 +110,13 @@ export const SBPFFeatures = {
 
 /** Holds the function symbols of an Executable */
 export interface FunctionRegistry<T> {
-    map: SortedMap<[Uint8Array, T]>
+    inner: SortedMap<bigint, [Uint8Array, T]>
 }
 
 export const FunctionRegistry = {
     default<T>(): FunctionRegistry<T> {
         return {
-            map: SortedMap.new<[Uint8Array, T]>(),
+            inner: new SortedMap<bigint, [Uint8Array, T]>(),
         }
     },
 
@@ -129,9 +125,9 @@ export const FunctionRegistry = {
         self: FunctionRegistry<T>,
         { key, name, value }: { key: bigint; name: string; value: T },
     ) {
-        const entry = self.map.inner.get(key)
+        const entry = self.inner.get(key)
         if (!entry) {
-            self.map.inner.set(key, [stringToU8Array(name), value])
+            self.inner.insert(key, [stringToU8Array(name), value])
         } else {
             if (entry[1] !== value) {
                 throw new Error(`SymbolHashCollision: ${key}`)
@@ -168,7 +164,7 @@ export const FunctionRegistry = {
                           ),
                       )
             if (
-                BuiltinProgram.getFunctionRegistry(loader).map.inner.get(
+                BuiltinProgram.getFunctionRegistry(loader).inner.get(
                     BigInt(hash),
                 )
             ) {

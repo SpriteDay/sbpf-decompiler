@@ -57,7 +57,7 @@ export function BlockBoundariesStage({
         })
     }, [currentStep, sbpfVersion, slots, functionRegistry])
 
-    const maxStep = cfgNodes.inner.size + slots.length - 1
+    const maxStep = cfgNodes.size + slots.length - 1
 
     const grouppedSlots = useMemo(() => {
         return groupInstructionsByCfgNodes({ cfgNodes, slots })
@@ -90,16 +90,12 @@ export function BlockBoundariesStage({
                                 {groupSlots.map((_, groupPc) => {
                                     const pc = startPc + groupPc
                                     const labelU8Arr =
-                                        functionRegistry.map.inner.get(
+                                        functionRegistry.inner.get(
                                             BigInt(pc),
                                         )?.[0]
                                     const isActive = instructionIndex === pc
-                                    const isLeader = !!cfgNodes.inner.get(
-                                        BigInt(pc),
-                                    )
-                                    const isEdge = !!cfgEdges.inner.get(
-                                        BigInt(pc),
-                                    )
+                                    const isLeader = !!cfgNodes.get(BigInt(pc))
+                                    const isEdge = !!cfgEdges.get(BigInt(pc))
                                     return (
                                         <React.Fragment key={pc}>
                                             {labelU8Arr && (
@@ -153,12 +149,12 @@ export function BlockBoundariesStage({
                         <div className="flex justify-center p-2 flex-col gap-1">
                             <p>
                                 Leaders:{" "}
-                                {cfgNodes.inner.size === 0 ? (
+                                {cfgNodes.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(cfgNodes.inner).map(
+                                    Array.from(cfgNodes).map(
                                         ([pc, cfgNode], index) => {
                                             const isActive =
                                                 index === cfgNodeIndex
@@ -192,12 +188,12 @@ export function BlockBoundariesStage({
                             </p>
                             <p>
                                 Edges:{" "}
-                                {cfgEdges.inner.size === 0 ? (
+                                {cfgEdges.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(cfgEdges.inner).map(
+                                    Array.from(cfgEdges).map(
                                         ([pc, _], index) => {
                                             const isActive =
                                                 index === cfgEdgeIndex
@@ -220,12 +216,12 @@ export function BlockBoundariesStage({
                             </p>
                             <p>
                                 Functions:{" "}
-                                {functionRegistry.map.inner.size === 0 ? (
+                                {functionRegistry.inner.size === 0 ? (
                                     <span className="text-foreground/50">
                                         {"<Empty>"}
                                     </span>
                                 ) : (
-                                    Array.from(functionRegistry.map.inner).map(
+                                    Array.from(functionRegistry.inner).map(
                                         ([key, [nameU8, _]]) => {
                                             const label =
                                                 u8ArrayToString(nameU8)

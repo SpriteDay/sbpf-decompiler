@@ -24,10 +24,7 @@ import {
 } from "../control-flow-graph/components/utils"
 import { FunctionRegistry, SBPFVersion } from "@/components/micro-vm/program"
 import { CfgNode } from "@/components/micro-vm/static-analysis"
-import {
-    SortedMap,
-    u8ArrayToString,
-} from "@/components/micro-vm/dependencies/utils"
+import { SortedMap } from "@/components/micro-vm/dependencies/data-structures"
 import {
     ResizableHandle,
     ResizablePanel,
@@ -57,6 +54,7 @@ import {
 import "@xyflow/react/dist/style.css"
 import { logger } from "@/lib/logger"
 import { useTheme } from "next-themes"
+import { u8ArrayToString } from "@/components/micro-vm/dependencies/utils"
 
 const elk = new ELK()
 
@@ -97,12 +95,12 @@ type CfgFlowEdge = Edge<{ points: Array<XYPosition> }, "cfgEdge">
 const getLayoutedElements = async ({
     cfgNodes,
 }: {
-    cfgNodes: SortedMap<CfgNode>
+    cfgNodes: SortedMap<bigint, CfgNode>
 }): Promise<{
     nodes: Array<CfgFlowNode>
     edgeRoutes: Map<string, Array<XYPosition>>
 }> => {
-    const entries = [...cfgNodes.inner]
+    const entries = [...cfgNodes]
     const graph: ElkNode = {
         id: "root",
         layoutOptions: elkOptions,
@@ -116,7 +114,7 @@ const getLayoutedElements = async ({
         })),
         edges: entries.flatMap(([pc, cfgNode]) =>
             cfgNode.destinations
-                .filter((destination) => cfgNodes.inner.has(destination))
+                .filter((destination) => cfgNodes.has(destination))
                 .map((destination) => ({
                     id: `${pc}-${destination}`,
                     sources: [String(pc)],
@@ -389,7 +387,7 @@ export function GraphVisualization({
         ? linkingStep - 1
         : destinationsCfgNodeIndex
 
-    const maxStep = Slots.length + cfgNodes.inner.size * 2 - 1
+    const maxStep = Slots.length + cfgNodes.size * 2 - 1
 
     const grouppedSlots = useMemo(() => {
         return groupInstructionsByCfgNodes({ cfgNodes, slots: Slots })
@@ -433,7 +431,7 @@ export function GraphVisualization({
     // viewport follows the node being processed and its destinations.
     const isLayouted = nodes.length > 0
     const focusedPcs = useMemo(() => {
-        const entry = [...cfgNodes.inner][activeCfgNodeIndex]
+        const entry = [...cfgNodes][activeCfgNodeIndex]
         if (!entry) return ""
         const [pc, { destinations }] = entry
         return [pc, ...destinations].join(",")
@@ -450,8 +448,8 @@ export function GraphVisualization({
     const cfgNodeViews = useMemo(
         () =>
             new Map<string, CfgNodeView>(
-                [...cfgNodes.inner].map(([pc, cfgNode], index) => {
-                    const labelU8Arr = functionRegistry.map.inner.get(pc)?.[0]
+                [...cfgNodes].map(([pc, cfgNode], index) => {
+                    const labelU8Arr = functionRegistry.inner.get(pc)?.[0]
                     return [
                         String(pc),
                         {
@@ -482,11 +480,11 @@ export function GraphVisualization({
     // and becomes solid once the linking pass records it at its target node
     const edges = useMemo(
         () =>
-            [...cfgNodes.inner].flatMap(([pc, cfgNode]) =>
+            [...cfgNodes].flatMap(([pc, cfgNode]) =>
                 cfgNode.destinations.flatMap(
                     (destination): Array<CfgFlowEdge> => {
                         const id = `${pc}-${destination}`
-                        const target = cfgNodes.inner.get(destination)
+                        const target = cfgNodes.get(destination)
                         const points = edgeRoutes.get(id)
                         if (!target || !points) return []
                         const isLinked = target.sources.includes(pc)
@@ -629,18 +627,18 @@ export function GraphVisualization({
                                                         const pc =
                                                             startPc + groupPc
                                                         const labelU8Arr =
-                                                            functionRegistry.map.inner.get(
+                                                            functionRegistry.inner.get(
                                                                 BigInt(pc),
                                                             )?.[0]
                                                         const isActive =
                                                             instructionIndex ===
                                                             pc
                                                         const isLeader =
-                                                            !!cfgNodes.inner.get(
+                                                            !!cfgNodes.get(
                                                                 BigInt(pc),
                                                             )
                                                         const isEdge =
-                                                            !!cfgEdges.inner.get(
+                                                            !!cfgEdges.get(
                                                                 BigInt(pc),
                                                             )
                                                         return (
@@ -706,14 +704,12 @@ export function GraphVisualization({
                                         <div className="flex justify-center p-2 flex-col gap-1">
                                             <p>
                                                 Nodes:{" "}
-                                                {cfgNodes.inner.size === 0 ? (
+                                                {cfgNodes.size === 0 ? (
                                                     <span className="text-foreground/50">
                                                         {"<Empty>"}
                                                     </span>
                                                 ) : (
-                                                    Array.from(
-                                                        cfgNodes.inner,
-                                                    ).map(
+                                                    Array.from(cfgNodes).map(
                                                         (
                                                             [pc, cfgNode],
                                                             index,
@@ -838,21 +834,22 @@ function linkCfgNodes({
     cfgNodes,
     maxStep,
 }: {
-    cfgNodes: SortedMap<CfgNode>
+    cfgNodes: SortedMap<bigint, CfgNode>
     maxStep?: number
 }) {
-    const maxPossibleStep = cfgNodes.inner.size
+    const maxPossibleStep = cfgNodes.size
     maxStep =
         typeof maxStep === "undefined" || maxStep > maxPossibleStep
             ? maxPossibleStep
             : maxStep
-    const linkedCfgNodes = SortedMap.new<CfgNode>()
-    linkedCfgNodes.inner = new Map([...cfgNodes.inner])
+    const linkedCfgNodes = SortedMap.from<bigint, CfgNode>(
+        new Map([...cfgNodes]),
+    )
 
     for (let i = 0; i < maxStep; i++) {
-        const [source, { destinations }] = [...linkedCfgNodes.inner][i]
+        const [source, { destinations }] = [...linkedCfgNodes][i]
         for (const destination of destinations) {
-            linkedCfgNodes.inner.get(destination)?.sources.push(source)
+            linkedCfgNodes.get(destination)?.sources.push(source)
         }
     }
 

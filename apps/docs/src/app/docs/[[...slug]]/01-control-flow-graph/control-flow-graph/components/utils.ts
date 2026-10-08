@@ -1,8 +1,6 @@
-import {
-    SortedMap,
-    u8ArrayToString,
-} from "@/components/micro-vm/dependencies/utils"
-import { Insn, InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
+import { SortedMap } from "@/components/micro-vm/dependencies/data-structures"
+import { u8ArrayToString } from "@/components/micro-vm/dependencies/utils"
+import { InsnRaw, OpCodes } from "@/components/micro-vm/ebpf"
 import {
     FunctionRegistry,
     SBPFFeatures,
@@ -23,11 +21,14 @@ function recordLeadersAndEdges({
     sbpfVersion: SBPFVersion
     flattenCallGraph?: boolean
 }): {
-    leaders: SortedMap<CfgNode>
-    edges: SortedMap<{
-        opc: bigint
-        destinations: Array<bigint>
-    }>
+    leaders: SortedMap<bigint, CfgNode>
+    edges: SortedMap<
+        bigint,
+        {
+            opc: bigint
+            destinations: Array<bigint>
+        }
+    >
     changes: {
         leaders: Array<{ pc: bigint; reason: string }>
         edges: Array<{
@@ -37,11 +38,14 @@ function recordLeadersAndEdges({
         }>
     }
 } {
-    const leaders = SortedMap.new<CfgNode>()
-    const edges = SortedMap.new<{
-        opc: bigint
-        destinations: Array<bigint>
-    }>()
+    const leaders = new SortedMap<bigint, CfgNode>()
+    const edges = new SortedMap<
+        bigint,
+        {
+            opc: bigint
+            destinations: Array<bigint>
+        }
+    >()
     const changes: {
         leaders: Array<{ pc: bigint; reason: string }>
         edges: Array<{
@@ -55,17 +59,17 @@ function recordLeadersAndEdges({
     }
 
     if (pc === 0n) {
-        SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
+        leaders.insert(pc, CfgNode.default())
         changes.leaders.push({
             pc,
             reason: "instruction 0 is always a leader",
         })
     }
 
-    const registryEntry = functionRegistry.map.inner.get(pc)
+    const registryEntry = functionRegistry.inner.get(pc)
     if (registryEntry) {
-        if (!leaders.inner.get(pc)) {
-            SortedMap.insert(leaders, { key: pc, value: CfgNode.default() })
+        if (!leaders.get(pc)) {
+            leaders.insert(pc, CfgNode.default())
             changes.leaders.push({
                 pc,
                 reason: `found registry function with the label "${u8ArrayToString(registryEntry[0])}"`,
@@ -85,7 +89,7 @@ function recordLeadersAndEdges({
             )
             let targetPc: bigint | undefined = undefined
             const callRegistryEntry =
-                functionRegistry.map.inner.get(callImmTargetPc)
+                functionRegistry.inner.get(callImmTargetPc)
             // In case a function was found in the registr and it's not V3+ syscall
             if (
                 callRegistryEntry &&
@@ -102,22 +106,16 @@ function recordLeadersAndEdges({
             }
             if (typeof targetPc !== "undefined") {
                 // Mark start of a basic block at the fall-through PC
-                if (!leaders.inner.get(pc + 1n)) {
-                    SortedMap.insert(leaders, {
-                        key: pc + 1n,
-                        value: CfgNode.default(),
-                    })
+                if (!leaders.get(pc + 1n)) {
+                    leaders.insert(pc + 1n, CfgNode.default())
                     changes.leaders.push({
                         pc: pc + 1n,
                         reason: "start of a basic block at the fall-through PC",
                     })
                 }
                 // Mark start of a basic block at the callee PC
-                if (!leaders.inner.get(targetPc)) {
-                    SortedMap.insert(leaders, {
-                        key: targetPc,
-                        value: CfgNode.default(),
-                    })
+                if (!leaders.get(targetPc)) {
+                    leaders.insert(targetPc, CfgNode.default())
                     changes.leaders.push({
                         pc: targetPc,
                         reason: "start of a basic block at the callee PC",
@@ -130,10 +128,7 @@ function recordLeadersAndEdges({
                     ? [pc + 1n, targetPc]
                     : [pc + 1n]
 
-                SortedMap.insert(edges, {
-                    key: pc,
-                    value: { opc: insn.opc, destinations },
-                })
+                edges.insert(pc, { opc: insn.opc, destinations })
                 changes.edges.push({
                     pc,
                     reason: "calls end basic blocks",
@@ -143,11 +138,8 @@ function recordLeadersAndEdges({
             break
         }
         case OpCodes.CALL_REG: {
-            if (!leaders.inner.get(pc + 1n)) {
-                SortedMap.insert(leaders, {
-                    key: pc + 1n,
-                    value: CfgNode.default(),
-                })
+            if (!leaders.get(pc + 1n)) {
+                leaders.insert(pc + 1n, CfgNode.default())
                 changes.leaders.push({
                     pc: pc + 1n,
                     reason: "start of a basic block at the fall-through PC",
@@ -161,10 +153,7 @@ function recordLeadersAndEdges({
             const destinations = flattenCallGraph
                 ? [pc + 1n, superRoot]
                 : [pc + 1n]
-            SortedMap.insert(edges, {
-                key: pc,
-                value: { opc: insn.opc, destinations },
-            })
+            edges.insert(pc, { opc: insn.opc, destinations })
             changes.edges.push({
                 pc,
                 reason: "calls end basic blocks",
@@ -173,20 +162,14 @@ function recordLeadersAndEdges({
             break
         }
         case OpCodes.EXIT: {
-            if (!leaders.inner.get(pc + 1n)) {
-                SortedMap.insert(leaders, {
-                    key: pc + 1n,
-                    value: CfgNode.default(),
-                })
+            if (!leaders.get(pc + 1n)) {
+                leaders.insert(pc + 1n, CfgNode.default())
                 changes.leaders.push({
                     pc: pc + 1n,
                     reason: "instruction after exit starts new block",
                 })
             }
-            SortedMap.insert(edges, {
-                key: pc,
-                value: { opc: insn.opc, destinations: [] },
-            })
+            edges.insert(pc, { opc: insn.opc, destinations: [] })
             changes.edges.push({
                 pc,
                 reason: "exit ends basic block",
@@ -201,21 +184,15 @@ function recordLeadersAndEdges({
                 64,
                 BigInt.asIntN(64, pc) + 1n + BigInt.asIntN(64, insn.off),
             )
-            if (!leaders.inner.get(pc + 1n)) {
-                SortedMap.insert(leaders, {
-                    key: pc + 1n,
-                    value: CfgNode.default(),
-                })
+            if (!leaders.get(pc + 1n)) {
+                leaders.insert(pc + 1n, CfgNode.default())
                 changes.leaders.push({
                     pc: pc + 1n,
                     reason: "fall-through of jump marks start of basic block",
                 })
             }
-            if (!leaders.inner.get(targetPc)) {
-                SortedMap.insert(leaders, {
-                    key: targetPc,
-                    value: CfgNode.default(),
-                })
+            if (!leaders.get(targetPc)) {
+                leaders.insert(targetPc, CfgNode.default())
                 changes.leaders.push({
                     pc: targetPc,
                     reason: "target of jump marks start of a basic block",
@@ -223,12 +200,9 @@ function recordLeadersAndEdges({
             }
             const destinations =
                 insn.opc === OpCodes.JA ? [targetPc] : [pc + 1n, targetPc]
-            SortedMap.insert(edges, {
-                key: pc,
-                value: {
-                    opc: insn.opc,
-                    destinations,
-                },
+            edges.insert(pc, {
+                opc: insn.opc,
+                destinations,
             })
             changes.edges.push({
                 pc,
@@ -259,11 +233,14 @@ export function accumulateLeadersAndEdges({
     sbpfVersion: SBPFVersion
     flattenCallGraph?: boolean
 }): {
-    leaders: SortedMap<CfgNode>
-    edges: SortedMap<{
-        opc: bigint
-        destinations: Array<bigint>
-    }>
+    leaders: SortedMap<bigint, CfgNode>
+    edges: SortedMap<
+        bigint,
+        {
+            opc: bigint
+            destinations: Array<bigint>
+        }
+    >
     changes: {
         leaders: Array<{ pc: bigint; reason: string }>
         edges: Array<{
@@ -274,9 +251,9 @@ export function accumulateLeadersAndEdges({
     }
 } {
     const leadersAcc: ReturnType<typeof recordLeadersAndEdges>["leaders"] =
-        SortedMap.new()
+        new SortedMap()
     const edgesAcc: ReturnType<typeof recordLeadersAndEdges>["edges"] =
-        SortedMap.new()
+        new SortedMap()
     let lastChanges: ReturnType<typeof recordLeadersAndEdges>["changes"] = {
         edges: [],
         leaders: [],
@@ -289,11 +266,11 @@ export function accumulateLeadersAndEdges({
             sbpfVersion,
             flattenCallGraph,
         })
-        leaders.inner.forEach((val, key) => {
-            SortedMap.insert(leadersAcc, { key, value: val })
+        leaders.forEach(([key, val]) => {
+            leadersAcc.insert(key, val)
         })
-        edges.inner.forEach((val, key) => {
-            SortedMap.insert(edgesAcc, { key, value: val })
+        edges.forEach(([key, val]) => {
+            edgesAcc.insert(key, val)
         })
         lastChanges = changes
     }
@@ -327,10 +304,7 @@ export function getFilteredLeadersAndEdges({
 
     if (typeof currentStep === "undefined") {
         const maxSafeStep =
-            leaders.inner.size +
-            edges.inner.size +
-            functionRegistry.map.inner.size -
-            1
+            leaders.size + edges.size + functionRegistry.inner.size - 1
         currentStep = maxSafeStep
     }
 
@@ -350,8 +324,8 @@ export function getFilteredLeadersAndEdges({
 
     for (let i = 0; i <= currentStep; i++) {
         let index = i
-        if (index < leaders.inner.size) {
-            const [leaderPc, _leader] = Array.from(leaders.inner)[index]
+        if (index < leaders.size) {
+            const [leaderPc, _leader] = Array.from(leaders)[index]
             if (!slots.entries().some(([pc, _]) => leaderPc === BigInt(pc))) {
                 removed.leaders.push({
                     index,
@@ -362,15 +336,15 @@ export function getFilteredLeadersAndEdges({
             continue
         }
 
-        index -= leaders.inner.size
-        if (index < edges.inner.size) {
-            const [key, edge] = Array.from(edges.inner)[index]
+        index -= leaders.size
+        if (index < edges.size) {
+            const [key, edge] = Array.from(edges)[index]
             edge.destinations = edge.destinations.filter((destination) => {
                 if (
                     !removed.leaders.some(
                         (removedLeader) => destination === removedLeader.pc,
                     ) &&
-                    leaders.inner.has(destination)
+                    leaders.has(destination)
                 ) {
                     return true
                 } else {
@@ -385,16 +359,14 @@ export function getFilteredLeadersAndEdges({
             continue
         }
 
-        index -= edges.inner.size
-        if (index < functionRegistry.map.inner.size) {
-            const [functionStart, _] = Array.from(functionRegistry.map.inner)[
-                index
-            ]
+        index -= edges.size
+        if (index < functionRegistry.inner.size) {
+            const [functionStart, _] = Array.from(functionRegistry.inner)[index]
             if (
                 removed.leaders.some(
                     (removedLeader) => functionStart === removedLeader.pc,
                 ) ||
-                !leaders.inner.has(functionStart)
+                !leaders.has(functionStart)
             ) {
                 removed.functions.push({
                     index,
@@ -425,13 +397,13 @@ export function defineInstructionsAndDestinations({
     functions,
 }: {
     maxStep: number
-    cfgNodes: SortedMap<CfgNode>
-    cfgEdges: SortedMap<{ opc: bigint; destinations: Array<bigint> }>
+    cfgNodes: SortedMap<bigint, CfgNode>
+    cfgEdges: SortedMap<bigint, { opc: bigint; destinations: Array<bigint> }>
     slots: Array<InsnRaw>
     functions: FunctionRegistry<bigint>
 }): {
-    cfgNodes: SortedMap<CfgNode>
-    cfgEdges: SortedMap<{ opc: bigint; destinations: Array<bigint> }>
+    cfgNodes: SortedMap<bigint, CfgNode>
+    cfgEdges: SortedMap<bigint, { opc: bigint; destinations: Array<bigint> }>
     instructionIndex: number
     cfgNodeIndex: number
     cfgEdgeIndex: number
@@ -466,7 +438,7 @@ export function defineInstructionsAndDestinations({
     >["lastEvent"] = null
 
     while (currentStep <= maxStep) {
-        const entry = Array.from(cfgNodes.inner)[cfgNodeIndex]
+        const entry = Array.from(cfgNodes)[cfgNodeIndex]
         if (!entry) {
             return {
                 cfgNodes,
@@ -479,9 +451,9 @@ export function defineInstructionsAndDestinations({
         }
         const [_cfgNodeStart, cfgNode] = entry
         const cfgNodeEnd =
-            cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length
+            cfgNodeIndex + 1 < Array.from(cfgNodes).length
                 ? // Next basic block start -1, if there is a next block
-                  Array.from(cfgNodes.inner.entries())[cfgNodeIndex + 1][0] - 1n
+                  Array.from([...cfgNodes])[cfgNodeIndex + 1][0] - 1n
                 : // Or the last instruction in the program, if there is no next cfg node
                   slots.length - 1
 
@@ -517,7 +489,7 @@ export function defineInstructionsAndDestinations({
         // If there is a recorded CFG edge within our calculated CFG node boundaries
         // we copy edge's destinations from the edge to the current CFG node and go
         // to the next CFG node
-        const nextCfgEdgeEntry = Array.from(cfgEdges.inner)[cfgEdgeIndex]
+        const nextCfgEdgeEntry = Array.from(cfgEdges)[cfgEdgeIndex]
         if (nextCfgEdgeEntry && nextCfgEdgeEntry[0] <= cfgNodeEnd) {
             cfgNode.destinations = [...nextCfgEdgeEntry[1].destinations]
             lastEvent = {
@@ -527,15 +499,14 @@ export function defineInstructionsAndDestinations({
                 destinations: nextCfgEdgeEntry[1].destinations,
             }
             cfgEdgeIndex++
-        } else if (cfgNodeIndex + 1 < Array.from(cfgNodes.inner).length) {
-            const [nextCfgNodeStart, _nextCfgNode] = Array.from(cfgNodes.inner)[
-                cfgNodeIndex + 1
-            ]
+        } else if (cfgNodeIndex + 1 < Array.from(cfgNodes).length) {
+            const [nextCfgNodeStart, _nextCfgNode] =
+                Array.from(cfgNodes)[cfgNodeIndex + 1]
             // If we couldn't a corresponding edge - we check whether
             // the next cfg node is function or no, and if it's not - we specify
             // the fall through destination to it. We keep CFG Nodes split by functions
             // for non flatten call graph
-            if (!functions.map.inner.get(nextCfgNodeStart)) {
+            if (!functions.inner.get(nextCfgNodeStart)) {
                 cfgNode.destinations.push(nextCfgNodeStart)
                 lastEvent = {
                     type: "destinations-fall-through",
@@ -593,23 +564,28 @@ export function getFilteredCfgNodesWithDestinations({
         sbpfVersion,
         flattenCallGraph,
     })
-    const filteredCfgNodes = SortedMap.new<CfgNode>()
-    filteredCfgNodes.inner = new Map(
-        [...leaders.inner].filter(
-            ([pc, _cfgNode]) =>
-                !removed.leaders.some(({ pc: removedPc }) => pc === removedPc),
+    const filteredCfgNodes = SortedMap.from<bigint, CfgNode>(
+        new Map(
+            [...leaders].filter(
+                ([pc, _cfgNode]) =>
+                    !removed.leaders.some(
+                        ({ pc: removedPc }) => pc === removedPc,
+                    ),
+            ),
         ),
     )
     const functions = FunctionRegistry.default<bigint>()
-    functions.map.inner = new Map(
-        [...functionRegistry.map.inner].filter(
-            ([pc, _]) =>
-                !removed.functions.some(
-                    ({ pc: removedPc }) => pc === removedPc,
-                ),
+    functions.inner = SortedMap.from(
+        new Map(
+            [...functionRegistry.inner].filter(
+                ([pc, _]) =>
+                    !removed.functions.some(
+                        ({ pc: removedPc }) => pc === removedPc,
+                    ),
+            ),
         ),
     )
-    const maxPossibleStep = filteredCfgNodes.inner.size + slots.length - 1
+    const maxPossibleStep = filteredCfgNodes.size + slots.length - 1
     maxStep =
         typeof maxStep === "undefined"
             ? maxPossibleStep
@@ -630,12 +606,12 @@ export function groupInstructionsByCfgNodes({
     cfgNodes,
     slots,
 }: {
-    cfgNodes: SortedMap<CfgNode>
+    cfgNodes: SortedMap<bigint, CfgNode>
     slots: Array<InsnRaw>
 }) {
     const ownershipMap = new Map<number, number>()
 
-    Array.from(cfgNodes.inner).forEach(([_, cfgNode], cfgNodeIndex) => {
+    Array.from(cfgNodes).forEach(([_, cfgNode], cfgNodeIndex) => {
         for (
             let i = cfgNode.instructions[0];
             i < cfgNode.instructions[1];

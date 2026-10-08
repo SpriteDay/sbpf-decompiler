@@ -206,7 +206,7 @@ export const Interpreter = {
                     if (insn.src === 0n) {
                         const callback = BuiltinProgram.getFunctionRegistry(
                             self.executable.loader,
-                        ).map.inner.get(BigInt.asUintN(32, insn.imm))?.[1]?.[0]
+                        ).inner.get(BigInt.asUintN(32, insn.imm))?.[1]?.[0]
                         if (callback) {
                             try {
                                 Interpreter.dispatchSyscall(self, {
@@ -235,7 +235,7 @@ export const Interpreter = {
                     // Try external callback
                     const callback = BuiltinProgram.getFunctionRegistry(
                         self.executable.loader,
-                    ).map.inner.get(BigInt.asUintN(32, insn.imm))?.[1]?.[0]
+                    ).inner.get(BigInt.asUintN(32, insn.imm))?.[1]?.[0]
                     if (callback) {
                         try {
                             Interpreter.dispatchSyscall(self, {
@@ -248,8 +248,9 @@ export const Interpreter = {
                         resolved = true
                     }
                     // Try internal function
-                    const entry =
-                        self.executable.functionRegistry.map.inner.get(insn.imm)
+                    const entry = self.executable.functionRegistry.inner.get(
+                        insn.imm,
+                    )
                     if (entry) {
                         const [_, targetPc] = entry
                         if (!Interpreter.pushFrame(self, { config })) {
