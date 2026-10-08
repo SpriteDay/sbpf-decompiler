@@ -53,7 +53,7 @@ export interface CfgNode {
 }
 
 /** An instruction or Phi node of the data-flow graph */
-type DfgNode =
+export type DfgNode =
     | {
           type: "InstructionNode"
           inner: bigint
@@ -64,7 +64,7 @@ type DfgNode =
       }
 
 /** The register or memory location a data-flow edge guards */
-type DataResource =
+export type DataResource =
     | {
           type: "Register"
           inner: number
@@ -81,7 +81,19 @@ type DataResource =
  * - Empty: This kind incurrs to actual data-flow
  * e.g. the destination overwrites a resource, written by the source
  */
-type DfdEdgeKind = "Filled" | "Empty"
+export type DfgEdgeKind = "Filled" | "Empty"
+
+/** An edge of the data-flow graph */
+export interface DfgEdge {
+    /** The DfgNode that the destination depends on */
+    source: DfgNode
+    /** The DfgNode that depends on the source */
+    destination: DfgNode
+    /** Write-read or write-write */
+    kind: DfgEdgeKind
+    /** A register or memory location */
+    resource: DataResource
+}
 
 export const CfgNode = {
     default(): CfgNode {
@@ -630,5 +642,23 @@ export const Analysis = {
     intraBasicBlockDataFlow(
         self: Analysis,
         { sbpfVersion }: { sbpfVersion: SBPFVersion },
-    ): SortedMap<Record<DataResource, bigint>> {},
+    ): SortedMap<Map<DataResource, bigint>> {
+        const bind = ({
+            state,
+            insn,
+            isOutput,
+            resource,
+        }: {
+            state: {
+                basicBlockStart: bigint
+                dfgEdgesMap: Map<DfgNode, Set<DfgEdge>>
+                dataResourcesMap: Map<DataResource, number>
+            }
+            insn: Insn
+            isOutput: boolean
+            resource: DataResource
+        }) => {
+            const kind: DfgEdgeKind = isOutput ? "Empty" : "Filled"
+        }
+    },
 }
