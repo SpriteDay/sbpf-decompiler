@@ -67,7 +67,7 @@ export type DfgNode =
 export type DataResource =
     | {
           type: "Register"
-          inner: number
+          inner: bigint
       }
     | {
           type: "Memory"
@@ -121,6 +121,8 @@ export interface Analysis {
     topologicalOrder: Array<bigint>
     /** Virtual CfgNode that reaches all functions */
     superRoot: bigint
+    /** Data flow edges (the keys are DfgEdge source) */
+    dfgForwardEdges: Map<DfgNode, Set<DfgEdge>>
 }
 
 export const Analysis = {
@@ -165,6 +167,7 @@ export const Analysis = {
             cfgNodes: SortedMap.new(),
             topologicalOrder: [],
             superRoot: insnPtr,
+            dfgForwardEdges: new Map(),
         }
         Analysis.splitIntoBasicBlocks(result, {
             flattenCallGraph: false,
@@ -685,5 +688,57 @@ export const Analysis = {
                 state.dataResourcesMap.set(resource, insn.ptr)
             }
         }
+        const state: {
+            basicBlockStart: bigint
+            dfgEdgesMap: Map<DfgNode, Set<DfgEdge>>
+            dataResourcesMap: Map<DataResource, bigint>
+        } = {
+            basicBlockStart: 0n,
+            dfgEdgesMap: new Map(),
+            dataResourcesMap: new Map(),
+        }
+
+        const dataDependenciesArr = [...self.cfgNodes.inner].map(
+            ([basicBlockStart, basicBlock]) => {
+                state.basicBlockStart = basicBlockStart
+                for (const insn of self.instructions.slice(
+                    basicBlock.instructions[0],
+                    basicBlock.instructions[1],
+                )) {
+                    switch (insn.opc) {
+                        // V2 reuses lgeacy arithmetic opcodes for memory accesses
+                        case OpCodes.LD_8B_REG: {
+                            bind({
+                                state,
+                                insn,
+                                isOutput: false,
+                                resource: { type: "Memory" },
+                            })
+                            bind({
+                                state,
+                                insn,
+                                isOutput: false,
+                                resource: { type: "Register", inner: insn.src },
+                            })
+                            bind({
+                                state,
+                                insn,
+                                isOutput: true,
+                                resource: { type: "Register", inner: insn.dst },
+                            })
+                            break
+                        }
+                    }
+                }
+                const deps = state.dataResourcesMap
+                return { 0: basicBlockStart, 1: deps }
+            },
+        )
+        const dataDependencies = SortedMap.new<Map<DataResource, bigint>>()
+        dataDependenciesArr.forEach(({ 0: key, 1: val }) => {
+            SortedMap.insert(dataDependencies, { key, value: val })
+        })
+        self.dfgForwardEdges = state.dfgEdgesMap
+        return dataDependencies
     },
 }
