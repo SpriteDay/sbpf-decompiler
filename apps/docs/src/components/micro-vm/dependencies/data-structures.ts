@@ -6,6 +6,7 @@ export const Ordering = {
 
 export type Ordering = (typeof Ordering)[keyof typeof Ordering]
 
+/** Replacement of Rust's BTreeMap */
 export class SortedMap<K, V> {
     private inner = new Map<string, [K, V]>()
 
@@ -90,33 +91,58 @@ export class SortedMap<K, V> {
 }
 
 /** Replacement of Rust's BTreeSet */
-export interface SortedSet<V> {
-    inner: Map<string, V>
-}
-export const SortedSet = {
-    new<V>(): SortedSet<V> {
-        return {
-            inner: new Map<string, V>(),
+export class SortedSet<V> {
+    private inner = new Map<string, V>()
+
+    get size() {
+        return this.inner.size
+    }
+
+    public sort() {
+        const entries = [...this.inner].sort(([_ka, a], [_kb, b]) => {
+            if (
+                ["number", "bigint"].includes(typeof a) &&
+                ["number", "bigint"].includes(typeof b)
+            ) {
+                return Number(
+                    BigInt(a as number | bigint) - BigInt(b as number | bigint),
+                )
+            }
+            return 0
+        })
+        this.inner = new Map([...entries])
+    }
+
+    public insert(value: V) {
+        const newEntry = !this.inner.has(unknownToString(value))
+        const innerKey = unknownToString(value)
+        this.inner.set(innerKey, value)
+        this.sort()
+        return newEntry
+    }
+
+    *[Symbol.iterator](): Generator<V> {
+        for (const [_, entry] of [...this.inner]) {
+            yield entry
         }
-    },
-    sort<V>(self: SortedSet<V>) {
-        const entries = [...self.inner]
-        self.inner.clear()
-        for (const [key, value] of entries) {
-            self.inner.set(key, value)
+    }
+
+    public forEach(fn: (entry: V, index: number, sortedSet: this) => unknown) {
+        let index = 0
+        for (const [_, value] of [...this.inner]) {
+            fn(value, index, this)
+            index++
         }
-        return self.inner
-    },
-    /** Returns true if element is inserted, false if an element was already in the set */
-    insert<V>(self: SortedSet<V>, { value }: { value: V }): boolean {
-        const newKey = unknownToString(value)
-        if (self.inner.has(newKey)) {
-            return false
-        }
-        self.inner.set(newKey, value)
-        SortedSet.sort(self)
-        return true
-    },
+    }
+
+    public entries() {
+        return this.inner.values()
+    }
+
+    /** Removes all of the elements from the inner map */
+    public clear() {
+        this.inner = new Map()
+    }
 }
 
 export const unknownToString = (obj: unknown): string => {

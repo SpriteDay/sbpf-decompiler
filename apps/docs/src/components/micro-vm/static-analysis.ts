@@ -626,15 +626,13 @@ export const Analysis = {
             }
 
             if (!state.dfgEdgesMap.get(source)) {
-                state.dfgEdgesMap.insert(source, SortedSet.new())
+                state.dfgEdgesMap.insert(source, new SortedSet())
             }
-            SortedSet.insert(state.dfgEdgesMap.get(source)!, {
-                value: {
-                    source,
-                    destination,
-                    kind,
-                    resource,
-                },
+            state.dfgEdgesMap.get(source)?.insert({
+                source,
+                destination,
+                kind,
+                resource,
             })
             if (isOutput) {
                 state.dataResourcesMap.insert(resource, insn.ptr)
