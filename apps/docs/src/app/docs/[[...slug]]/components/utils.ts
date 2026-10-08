@@ -92,6 +92,16 @@ export function formatInstruction({
             }
             break
         }
+        // PQR
+        case OpCodes.LMUL64_IMM: {
+            // `lmul64 dst, imm` | `dst = (dst * imm) as u64 */
+            formatted = {
+                "LLVM": `r${dst} = (r${dst} * ${imm}) as u64`,
+                "NASM": `lmul64 r${dst}, ${imm}`,
+            }
+            break
+        }
+        // Jumps
         case OpCodes.JA: {
             formatted = {
                 "LLVM": `PC += ${off}`,

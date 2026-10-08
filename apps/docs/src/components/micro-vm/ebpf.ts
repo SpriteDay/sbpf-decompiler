@@ -54,6 +54,8 @@ const BPF_ALU64_STORE = 0b0000_0_111n
 // Size modifiers:
 /** BPF size modifier: double word (8 bytes). */
 const BPF_DW = 0b000_11_000n
+/** BPF size modifier: byte (1 byte). */
+const BPF_B = 0b000_10_000n
 /** BPF size modifier: 8 bytes. */
 const BPF_8B = 0b100_10_000n
 
@@ -81,6 +83,13 @@ const BPF_ADD = 0b0000_0_000n
 const BPF_SUB = 0b0001_0_000n
 /** BPF ALU/ALU64 operation code: move. */
 const BPF_MOV = 0b1011_0_000n
+
+// Operation codes -- BPF_PQR class:
+//   7         6               5                               4        3          2-0
+// 0 Unsigned  Multiplication  Product Lower Half / Quotient   32 Bit   Immediate  PQR
+// 1 Signed    Division        Product Lower Half / Remainder  64 Bit   Register   PQR
+/** BPF PQR operation code: low multiplication */
+const BPF_LMUL = 0x1000_0_000n
 
 // Operation codes -- BPF_JMP32 and BPF_JMP64 classes:
 /** BPF JMP operation code: jump. */

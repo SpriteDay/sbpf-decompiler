@@ -655,33 +655,86 @@ export const Analysis = {
                     basicBlock.instructions[0],
                     basicBlock.instructions[1],
                 )) {
+                    // biome-ignore format: keep all instructions in one line
                     switch (true) {
                         // V2 reuses lgeacy arithmetic opcodes for memory accesses
                         case insn.opc === OpCodes.LD_8B_REG &&
                             SBPFFeatures.moveMemoryInstructionClasses(
                                 sbpfVersion,
                             ): {
-                            bind({
-                                state,
-                                insn,
-                                isOutput: false,
-                                resource: { type: "Memory" },
-                            })
-                            bind({
-                                state,
-                                insn,
-                                isOutput: false,
-                                resource: { type: "Register", inner: insn.src },
-                            })
-                            bind({
-                                state,
-                                insn,
-                                isOutput: true,
-                                resource: { type: "Register", inner: insn.dst },
-                            })
+                            bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.src } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
                             break
                         }
-                        case insn.opc === OpCodes
+                        case insn.opc === OpCodes.LMUL64_IMM &&
+                            SBPFFeatures.enablePqr(sbpfVersion): {
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.dst } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.JEQ64_IMM ||
+                            insn.opc === OpCodes.JGT64_IMM: {
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.CALL_IMM ||
+                            insn.opc === OpCodes.CALL_REG: {
+                            if (insn.opc === OpCodes.CALL_REG) {
+                                const target = SBPFFeatures.callxUsesSrcReg(
+                                    sbpfVersion,
+                                )
+                                    ? insn.src
+                                    : SBPFFeatures.callxUsesDstReg(sbpfVersion)
+                                      ? insn.dst
+                                      : insn.imm
+                                bind({ state, insn, isOutput: false, resource: { type: "Register", inner: target, } })
+                                bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
+                                bind({ state, insn, isOutput: true, resource: { type: "Memory" } })
+                                for (const reg of [0n, 1n, 2n, 3n, 4n, 5n, 10n]) {
+                                    bind({ state, insn, isOutput: false, resource: { type: "Register", inner: reg } })
+                                    bind({ state, insn, isOutput: true, resource: { type: "Register", inner: reg } })
+                                } 
+                            }
+                            break
+                        }
+                        case insn.opc === OpCodes.EXIT: {
+                            bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
+                            for (const reg of [0n, 1n, 2n, 3n, 4n, 5n, 10n]) {
+                                bind({ state, insn, isOutput: false, resource: { type: "Register", inner: reg } })
+                            } 
+                            break
+                        }
+                        case insn.opc === OpCodes.LD_DW_IMM && !SBPFFeatures.disableLddw(sbpfVersion): {
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.LD_8B_REG: {
+                            bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.src } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.ADD64_IMM || insn.opc === OpCodes.SUB64_IMM: {
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.dst } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.MOV64_IMM: {
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.ADD64_REG: {
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.src } })
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.dst } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
+                        case insn.opc === OpCodes.MOV64_REG: {
+                            bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.src } })
+                            bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
+                            break
+                        }
                     }
                 }
                 const deps = state.dataResourcesMap

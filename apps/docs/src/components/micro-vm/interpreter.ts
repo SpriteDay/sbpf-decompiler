@@ -158,6 +158,18 @@ export const Interpreter = {
                 break
             }
 
+            // BPF_PQR class
+            case OpCodes.LMUL64_IMM: {
+                if (SBPFFeatures.enablePqr(self.executable.sbpfVersion)) {
+                    let newVal = self.reg[dst] * insn.imm
+                    if (newVal > BigInt.asUintN(64, -1n)) {
+                        newVal -= BigInt.asUintN(64, -1n)
+                    }
+                    self.reg[dst] = newVal
+                }
+                break
+            }
+
             // BPF_JMP64 class
             case OpCodes.JA: {
                 nextPc = BigInt.asUintN(64, nextPc + insn.off)
