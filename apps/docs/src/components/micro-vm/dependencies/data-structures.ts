@@ -1,5 +1,3 @@
-import { stringToU8Array } from "./utils"
-
 export const Ordering = {
     Less: -1,
     Equal: 0,
@@ -16,9 +14,17 @@ export class SortedMap<K, V> {
     }
 
     public sort() {
-        const entries = [...this.inner].sort(
-            ([_ka, [a]], [_kb, [b]]) => unknownToNumber(a) - unknownToNumber(b),
-        )
+        const entries = [...this.inner].sort(([_ka, [a]], [_kb, [b]]) => {
+            if (
+                ["number", "bigint"].includes(typeof a) &&
+                ["number", "bigint"].includes(typeof b)
+            ) {
+                return Number(
+                    BigInt(a as number | bigint) - BigInt(b as number | bigint),
+                )
+            }
+            return 0
+        })
         this.inner = new Map([...entries])
     }
 
@@ -86,19 +92,15 @@ export class SortedMap<K, V> {
 /** Replacement of Rust's BTreeSet */
 export interface SortedSet<V> {
     inner: Map<string, V>
-    orderMap: Map<string, number>
 }
 export const SortedSet = {
     new<V>(): SortedSet<V> {
         return {
             inner: new Map<string, V>(),
-            orderMap: new Map<string, number>(),
         }
     },
     sort<V>(self: SortedSet<V>) {
-        const entries = [...self.inner].sort(
-            ([a], [b]) => self.orderMap.get(a)! - self.orderMap.get(b)!,
-        )
+        const entries = [...self.inner]
         self.inner.clear()
         for (const [key, value] of entries) {
             self.inner.set(key, value)
@@ -108,15 +110,10 @@ export const SortedSet = {
     /** Returns true if element is inserted, false if an element was already in the set */
     insert<V>(self: SortedSet<V>, { value }: { value: V }): boolean {
         const newKey = unknownToString(value)
-        let biggestExistingIndex = 0
-        for (const [key, orderIndex] of [...self.orderMap]) {
-            if (newKey === key) {
-                return false
-            }
-            biggestExistingIndex = Math.max(biggestExistingIndex, orderIndex)
+        if (self.inner.has(newKey)) {
+            return false
         }
         self.inner.set(newKey, value)
-        self.orderMap.set(newKey, biggestExistingIndex + 1)
         SortedSet.sort(self)
         return true
     },
@@ -136,33 +133,4 @@ export const unknownToString = (obj: unknown): string => {
     } else {
         return String(obj)
     }
-}
-
-export const unknownToNumber = (obj: unknown): number => {
-    if (["number", "bigint"].includes(typeof obj)) {
-        return Number(obj)
-    }
-    if (["string", "symbol"].includes(typeof obj)) {
-        const u8Arr = stringToU8Array(String(obj))
-        const sum = u8Arr.reduce((acc, val) => acc + val)
-        return sum
-    }
-    if (typeof obj === "boolean") {
-        return obj ? 1 : 0
-    }
-    if (typeof obj === "undefined") {
-        return 0
-    }
-    if (typeof obj === "object") {
-        if (obj === null) {
-            return 0
-        }
-        let acc = 0
-        for (const val of Object.values(obj)) {
-            const num = unknownToNumber(val)
-            acc = Number(`${acc}${num}`)
-        }
-        return acc
-    }
-    return 0
 }

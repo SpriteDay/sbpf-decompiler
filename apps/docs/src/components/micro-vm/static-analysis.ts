@@ -594,7 +594,7 @@ export const Analysis = {
     intraBasicBlockDataFlow(
         self: Analysis,
         { sbpfVersion }: { sbpfVersion: SBPFVersion },
-    ): SortedMap<bigint, Map<DataResource, bigint>> {
+    ): SortedMap<bigint, SortedMap<DataResource, bigint>> {
         const bind = ({
             state,
             insn,
@@ -682,14 +682,14 @@ export const Analysis = {
                         }
                     }
                 }
-                const deps = new Map([...state.dataResourcesMap])
+                const deps = state.dataResourcesMap
                 state.dataResourcesMap = new SortedMap()
                 return { 0: basicBlockStart, 1: deps }
             },
         )
         const dataDependencies = new SortedMap<
             bigint,
-            Map<DataResource, bigint>
+            SortedMap<DataResource, bigint>
         >()
         dataDependenciesArr.forEach(({ 0: key, 1: val }) => {
             dataDependencies.insert(key, val)
