@@ -652,13 +652,38 @@ export const Analysis = {
             state: {
                 basicBlockStart: bigint
                 dfgEdgesMap: Map<DfgNode, Set<DfgEdge>>
-                dataResourcesMap: Map<DataResource, number>
+                dataResourcesMap: Map<DataResource, bigint>
             }
             insn: Insn
             isOutput: boolean
             resource: DataResource
         }) => {
             const kind: DfgEdgeKind = isOutput ? "Empty" : "Filled"
+
+            const source: DfgNode = state.dataResourcesMap.get(resource)
+                ? {
+                      type: "InstructionNode",
+                      inner: state.dataResourcesMap.get(resource)!,
+                  }
+                : { type: "PhiNode", inner: state.basicBlockStart }
+
+            const destination: DfgNode = {
+                type: "InstructionNode",
+                inner: insn.ptr,
+            }
+
+            if (!state.dfgEdgesMap.get(source)) {
+                state.dfgEdgesMap.set(source, new Set())
+            }
+            state.dfgEdgesMap.get(source)?.add({
+                source,
+                destination,
+                kind,
+                resource,
+            })
+            if (isOutput) {
+                state.dataResourcesMap.set(resource, insn.ptr)
+            }
         }
     },
 }
