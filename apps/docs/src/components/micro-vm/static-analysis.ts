@@ -1,5 +1,6 @@
 import {
     SortedMap,
+    SortedSet,
     stringToU8Array,
     u8ArrayToString,
 } from "./dependencies/utils"
@@ -78,7 +79,7 @@ export type DataResource =
  * - Filled: This kind represents data-flow edges which actually carry data,
  * e.g. the destination reads a resource, written by the source
  *
- * - Empty: This kind incurrs to actual data-flow
+ * - Empty: This kind incurrs no actual data-flow
  * e.g. the destination overwrites a resource, written by the source
  */
 export type DfgEdgeKind = "Filled" | "Empty"
@@ -122,7 +123,10 @@ export interface Analysis {
     /** Virtual CfgNode that reaches all functions */
     superRoot: bigint
     /** Data flow edges (the keys are DfgEdge source) */
-    dfgForwardEdges: Map<DfgNode, Set<DfgEdge>>
+    dfgForwardEdges: Map<
+        `${DfgNode["type"]}${DfgNode["inner"]}`,
+        SortedSet<DfgEdge>
+    >
 }
 
 export const Analysis = {
@@ -645,7 +649,7 @@ export const Analysis = {
     intraBasicBlockDataFlow(
         self: Analysis,
         { sbpfVersion }: { sbpfVersion: SBPFVersion },
-    ): SortedMap<Map<DataResource, bigint>> {
+    ): SortedMap<Map<`${DataResource["type"]}${bigint}`, bigint>> {
         const bind = ({
             state,
             insn,
@@ -654,8 +658,14 @@ export const Analysis = {
         }: {
             state: {
                 basicBlockStart: bigint
-                dfgEdgesMap: Map<DfgNode, Set<DfgEdge>>
-                dataResourcesMap: Map<DataResource, bigint>
+                dfgEdgesMap: Map<
+                    `${DfgNode["type"]}${DfgNode["inner"]}`,
+                    SortedSet<DfgEdge>
+                >
+                dataResourcesMap: Map<
+                    `${DataResource["type"]}${bigint}`,
+                    bigint
+                >
             }
             insn: Insn
             isOutput: boolean
@@ -663,35 +673,54 @@ export const Analysis = {
         }) => {
             const kind: DfgEdgeKind = isOutput ? "Empty" : "Filled"
 
-            const source: DfgNode = state.dataResourcesMap.get(resource)
-                ? {
-                      type: "InstructionNode",
-                      inner: state.dataResourcesMap.get(resource)!,
-                  }
-                : { type: "PhiNode", inner: state.basicBlockStart }
+            const source: DfgNode =
+                typeof state.dataResourcesMap.get(
+                    `${resource.type}${resource.type === "Register" ? resource.inner : 0n}`,
+                ) !== "undefined"
+                    ? {
+                          type: "InstructionNode",
+                          inner: state.dataResourcesMap.get(
+                              `${resource.type}${resource.type === "Register" ? resource.inner : 0n}`,
+                          )!,
+                      }
+                    : { type: "PhiNode", inner: state.basicBlockStart }
 
             const destination: DfgNode = {
                 type: "InstructionNode",
                 inner: insn.ptr,
             }
 
-            if (!state.dfgEdgesMap.get(source)) {
-                state.dfgEdgesMap.set(source, new Set())
+            if (!state.dfgEdgesMap.get(`${source.type}${source.inner}`)) {
+                state.dfgEdgesMap.set(
+                    `${source.type}${source.inner}`,
+                    SortedSet.new(),
+                )
             }
-            state.dfgEdgesMap.get(source)?.add({
-                source,
-                destination,
-                kind,
-                resource,
-            })
+            SortedSet.insert(
+                state.dfgEdgesMap.get(`${source.type}${source.inner}`)!,
+                {
+                    value: {
+                        source,
+                        destination,
+                        kind,
+                        resource,
+                    },
+                },
+            )
             if (isOutput) {
-                state.dataResourcesMap.set(resource, insn.ptr)
+                state.dataResourcesMap.set(
+                    `${resource.type}${resource.type === "Register" ? resource.inner : 0n}`,
+                    insn.ptr,
+                )
             }
         }
         const state: {
             basicBlockStart: bigint
-            dfgEdgesMap: Map<DfgNode, Set<DfgEdge>>
-            dataResourcesMap: Map<DataResource, bigint>
+            dfgEdgesMap: Map<
+                `${DfgNode["type"]}${DfgNode["inner"]}`,
+                SortedSet<DfgEdge>
+            >
+            dataResourcesMap: Map<`${DataResource["type"]}${bigint}`, bigint>
         } = {
             basicBlockStart: 0n,
             dfgEdgesMap: new Map(),
@@ -730,11 +759,13 @@ export const Analysis = {
                         }
                     }
                 }
-                const deps = state.dataResourcesMap
+                const deps = new Map([...state.dataResourcesMap])
+                state.dataResourcesMap = new Map()
                 return { 0: basicBlockStart, 1: deps }
             },
         )
-        const dataDependencies = SortedMap.new<Map<DataResource, bigint>>()
+        const dataDependencies =
+            SortedMap.new<Map<`${DataResource["type"]}${bigint}`, bigint>>()
         dataDependenciesArr.forEach(({ 0: key, 1: val }) => {
             SortedMap.insert(dataDependencies, { key, value: val })
         })

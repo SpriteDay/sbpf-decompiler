@@ -49,14 +49,16 @@ export const Ordering = {
 export type Ordering = (typeof Ordering)[keyof typeof Ordering]
 
 export const unknownToString = (obj: unknown): string => {
-    if (typeof obj === "string") {
-        return obj
+    if (["string", "number", "symbol", "boolean"].includes(typeof obj)) {
+        return String(obj)
+    } else if (typeof obj === "bigint") {
+        return obj.toString()
     } else if (typeof obj === "object") {
-        try {
-            return JSON.stringify(obj, null, 2)
-        } catch {
-            return String(obj)
-        }
+        return JSON.stringify(
+            obj,
+            (_key, val) => (typeof val === "bigint" ? Number(val) : val),
+            2,
+        )
     } else {
         return String(obj)
     }
