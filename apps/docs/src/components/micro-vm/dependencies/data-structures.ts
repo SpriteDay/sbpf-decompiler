@@ -1,3 +1,5 @@
+import { stringToU8Array } from "./utils"
+
 export const Ordering = {
     Less: -1,
     Equal: 0,
@@ -7,70 +9,60 @@ export const Ordering = {
 export type Ordering = (typeof Ordering)[keyof typeof Ordering]
 
 export class SortedMap<K, V> {
-    private inner = new Map<K, V>()
-    private orderMap = new Map<K, number>()
+    private inner = new Map<string, [K, V]>()
 
     public size: number = 0
 
     public sort() {
         const entries = [...this.inner].sort(
-            ([a], [b]) => this.orderMap.get(a)! - this.orderMap.get(b)!,
+            ([a], [b]) => unknownToNumber(a) - unknownToNumber(b),
         )
         this.inner = new Map([...entries])
     }
 
     public get(key: K): V | undefined {
-        return this.inner.get(key)
+        return this.inner.get(unknownToString(key))?.[1]
     }
 
     public has(key: K): boolean {
-        return this.inner.has(key)
+        return this.inner.has(unknownToString(key))
     }
 
     public insert(key: K, value: V) {
-        const newKey = unknownToString(key)
-        let biggestExistingIndex = 0
-        for (const [key, orderIndex] of [...this.orderMap]) {
-            if (newKey === key) {
-                return false
-            }
-            biggestExistingIndex = Math.max(biggestExistingIndex, orderIndex)
-        }
-        this.inner.set(key, value)
-        this.orderMap.set(key, biggestExistingIndex + 1)
+        const innerKey = unknownToString(key)
+        this.inner.set(innerKey, [key, value])
         this.sort()
         this.size++
         return true
     }
 
     *[Symbol.iterator](): Generator<[K, V]> {
-        for (const entry of [...this.inner]) {
+        for (const [_, entry] of [...this.inner]) {
             yield entry
         }
     }
 
     public forEach(
-        fn: (entry: [K, V], index: number, map: Map<K, V>) => unknown,
+        fn: (entry: [K, V], index: number, sortedMap: this) => unknown,
     ) {
         let index = 0
-        for (const [key, value] of [...this.inner]) {
-            fn([key, value], index, this.inner)
+        for (const [_, [key, value]] of [...this.inner]) {
+            fn([key, value], index, this)
             index++
         }
     }
 
     public entries() {
-        return this.inner.entries()
+        return this.inner.values()
     }
 
     public keys() {
-        return this.inner.keys()
+        return [...this.inner].map(([_, [key, _val]]) => key)
     }
 
     /** Removes all of the elements from the inner map */
     public clear() {
         this.inner = new Map()
-        this.orderMap = new Map()
         this.size = 0
     }
 
@@ -144,4 +136,33 @@ export const unknownToString = (obj: unknown): string => {
     } else {
         return String(obj)
     }
+}
+
+export const unknownToNumber = (obj: unknown): number => {
+    if (["number", "bigint"].includes(typeof obj)) {
+        return Number(obj)
+    }
+    if (["string", "symbol"].includes(typeof obj)) {
+        const u8Arr = stringToU8Array(String(obj))
+        const sum = u8Arr.reduce((acc, val) => acc + val)
+        return sum
+    }
+    if (typeof obj === "boolean") {
+        return obj ? 1 : 0
+    }
+    if (typeof obj === "undefined") {
+        return 0
+    }
+    if (typeof obj === "object") {
+        if (obj === null) {
+            return 0
+        }
+        let acc = 0
+        for (const val of Object.values(obj)) {
+            const num = unknownToNumber(val)
+            acc = Number(`${acc}${num}`)
+        }
+        return acc
+    }
+    return 0
 }
