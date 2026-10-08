@@ -11,11 +11,13 @@ export type Ordering = (typeof Ordering)[keyof typeof Ordering]
 export class SortedMap<K, V> {
     private inner = new Map<string, [K, V]>()
 
-    public size: number = 0
+    get size() {
+        return this.inner.size
+    }
 
     public sort() {
         const entries = [...this.inner].sort(
-            ([a], [b]) => unknownToNumber(a) - unknownToNumber(b),
+            ([_ka, [a]], [_kb, [b]]) => unknownToNumber(a) - unknownToNumber(b),
         )
         this.inner = new Map([...entries])
     }
@@ -32,7 +34,6 @@ export class SortedMap<K, V> {
         const innerKey = unknownToString(key)
         this.inner.set(innerKey, [key, value])
         this.sort()
-        this.size++
         return true
     }
 
@@ -63,7 +64,6 @@ export class SortedMap<K, V> {
     /** Removes all of the elements from the inner map */
     public clear() {
         this.inner = new Map()
-        this.size = 0
     }
 
     static from<K, V>(map: Map<K, V>): SortedMap<K, V> {

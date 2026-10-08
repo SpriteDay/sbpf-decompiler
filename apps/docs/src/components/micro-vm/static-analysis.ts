@@ -604,7 +604,7 @@ export const Analysis = {
             state: {
                 basicBlockStart: bigint
                 dfgEdgesMap: SortedMap<DfgNode, SortedSet<DfgEdge>>
-                dataResourcesMap: Map<DataResource, bigint>
+                dataResourcesMap: SortedMap<DataResource, bigint>
             }
             insn: Insn
             isOutput: boolean
@@ -637,17 +637,17 @@ export const Analysis = {
                 },
             })
             if (isOutput) {
-                state.dataResourcesMap.set(resource, insn.ptr)
+                state.dataResourcesMap.insert(resource, insn.ptr)
             }
         }
         const state: {
             basicBlockStart: bigint
             dfgEdgesMap: SortedMap<DfgNode, SortedSet<DfgEdge>>
-            dataResourcesMap: Map<DataResource, bigint>
+            dataResourcesMap: SortedMap<DataResource, bigint>
         } = {
             basicBlockStart: 0n,
             dfgEdgesMap: new SortedMap(),
-            dataResourcesMap: new Map(),
+            dataResourcesMap: new SortedMap(),
         }
 
         const dataDependenciesArr = [...self.cfgNodes].map(
@@ -683,7 +683,7 @@ export const Analysis = {
                     }
                 }
                 const deps = new Map([...state.dataResourcesMap])
-                state.dataResourcesMap = new Map()
+                state.dataResourcesMap = new SortedMap()
                 return { 0: basicBlockStart, 1: deps }
             },
         )
