@@ -39,7 +39,15 @@ export class SortedMap<K, V> {
 
     public insert(key: K, value: V) {
         const innerKey = unknownToString(key)
+        const isNew = !this.inner.has(innerKey)
         this.inner.set(innerKey, [key, value])
+        this.sort()
+        return isNew
+    }
+
+    public remove(key: K) {
+        const innerKey = unknownToString(key)
+        this.inner.delete(innerKey)
         this.sort()
         return true
     }
@@ -66,6 +74,10 @@ export class SortedMap<K, V> {
 
     public keys() {
         return [...this.inner].map(([_, [key, _val]]) => key)
+    }
+
+    public values() {
+        return [...this.inner].map(([_, [_key, val]]) => val)
     }
 
     /** Removes all of the elements from the inner map */

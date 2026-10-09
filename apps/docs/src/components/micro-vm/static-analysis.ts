@@ -118,8 +118,10 @@ export interface Analysis {
     topologicalOrder: Array<bigint>
     /** Virtual CfgNode that reaches all functions */
     superRoot: bigint
-    /** Data flow edges (the keys are DfgEdge source) */
+    /** Data flow edges (the keys are DfgEdge sources) */
     dfgForwardEdges: SortedMap<DfgNode, SortedSet<DfgEdge>>
+    /** Data flow edges (the keys are DfgEdge destinations) */
+    dfgReverseEdges: SortedMap<DfgNode, SortedSet<DfgEdge>>
 }
 
 export const Analysis = {
@@ -162,6 +164,7 @@ export const Analysis = {
             topologicalOrder: [],
             superRoot: insnPtr,
             dfgForwardEdges: new SortedMap(),
+            dfgReverseEdges: new SortedMap(),
         }
         Analysis.splitIntoBasicBlocks(result, {
             flattenCallGraph: false,
@@ -870,6 +873,29 @@ export const Analysis = {
                     { type: "PhiNode", inner: basicBlockStart },
                     edges,
                 )
+            }
+        }
+        for (const [basicBlockStart, basicBlock] of self.cfgNodes) {
+            // Clear placeholder PhiNodes from basic blocks that has only one source
+            if (basicBlock.sources.length === 1) {
+                self.dfgForwardEdges.remove({
+                    type: "PhiNode",
+                    inner: basicBlockStart,
+                })
+            }
+        }
+        // Building reverse edges
+        for (const dfgEdges of self.dfgForwardEdges.values()) {
+            for (const dfgEdge of dfgEdges) {
+                if (!self.dfgReverseEdges.get({ ...dfgEdge.destination })) {
+                    self.dfgReverseEdges.insert(
+                        dfgEdge.destination,
+                        new SortedSet(),
+                    )
+                }
+                self.dfgReverseEdges
+                    .get({ ...dfgEdge.destination })!
+                    .insert({ ...dfgEdge })
             }
         }
     },
