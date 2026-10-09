@@ -118,14 +118,20 @@ export const Interpreter = {
 
             // BPF_LDX class
             case OpCodes.LD_B_REG: {
-                const vmAddr = BigInt.asUintN(
-                    64,
-                    BigInt.asIntN(64, self.reg[src]) + insn.off,
-                )
-                self.reg[dst] = MemoryMapping.load(self.vm.memoryMapping, {
-                    vmAddr,
-                    size: 1,
-                })
+                if (
+                    !SBPFFeatures.moveMemoryInstructionClasses(
+                        self.executable.sbpfVersion,
+                    )
+                ) {
+                    const vmAddr = BigInt.asUintN(
+                        64,
+                        BigInt.asIntN(64, self.reg[src]) + insn.off,
+                    )
+                    self.reg[dst] = MemoryMapping.load(self.vm.memoryMapping, {
+                        vmAddr,
+                        size: 1,
+                    })
+                }
                 break
             }
 

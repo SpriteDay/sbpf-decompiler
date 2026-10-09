@@ -709,7 +709,7 @@ export const Analysis = {
                             bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
                             break
                         }
-                        case insn.opc === OpCodes.LD_B_REG: {
+                        case insn.opc === OpCodes.LD_B_REG && !SBPFFeatures.moveMemoryInstructionClasses(sbpfVersion): {
                             bind({ state, insn, isOutput: false, resource: { type: "Memory" } })
                             bind({ state, insn, isOutput: false, resource: { type: "Register", inner: insn.src } })
                             bind({ state, insn, isOutput: true, resource: { type: "Register", inner: insn.dst } })
