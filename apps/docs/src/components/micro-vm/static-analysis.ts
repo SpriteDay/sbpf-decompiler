@@ -823,6 +823,29 @@ export const Analysis = {
                             sourceIsAPhiNode = true
                             source = { type: "PhiNode", inner: predecessor }
                         }
+                        const edgeClone = { ...edge }
+                        // If basic block has multiple sources - we can't say for sure
+                        // which one is the source of the value, so we put a PhiNode as a soruce
+                        if (basicBlock.sources.length !== 1) {
+                            edgeClone.destination = {
+                                type: "PhiNode",
+                                inner: basicBlockStart,
+                            }
+                        }
+                        if (
+                            // If inserted source is a new one
+                            (
+                                self.dfgForwardEdges.get(source) ||
+                                new SortedSet()
+                            ).insert({ ...edge }) &&
+                            // And we propagating marker of source instruction not defined yet
+                            sourceIsAPhiNode &&
+                            // And source DFG node is equal to phi node with current block start
+                            source.type === "PhiNode" &&
+                            source.inner === basicBlockStart
+                        ) {
+                            continuePropagation = true
+                        }
                     }
                 }
             }
