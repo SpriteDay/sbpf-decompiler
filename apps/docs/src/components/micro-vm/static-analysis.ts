@@ -808,7 +808,7 @@ export const Analysis = {
                         let sourceIsAPhiNode = false
                         let source: DfgNode
                         if (
-                            typeof providedOutputs.get(edge.resource) ===
+                            typeof providedOutputs.get(edge.resource) !==
                             "undefined"
                         ) {
                             // If we found a resource in the predecessor - we write down
@@ -833,21 +833,43 @@ export const Analysis = {
                             }
                         }
                         if (
-                            // If inserted source is a new one
+                            // If inserted source is a new one (there is more work to do)
                             (
-                                self.dfgForwardEdges.get(source) ||
-                                new SortedSet()
-                            ).insert({ ...edge }) &&
+                                (self.dfgForwardEdges.get(source) ||
+                                    (self.dfgForwardEdges.insert(
+                                        source,
+                                        new SortedSet(),
+                                    ) &&
+                                        self.dfgForwardEdges.get(
+                                            source,
+                                        )!)) as SortedSet<DfgEdge>
+                            ).insert({ ...edgeClone }) &&
                             // And we propagating marker of source instruction not defined yet
                             sourceIsAPhiNode &&
-                            // And source DFG node is equal to phi node with current block start
-                            source.type === "PhiNode" &&
-                            source.inner === basicBlockStart
+                            // And the source of the block is not block itself - loop case
+                            !(
+                                source.type === "PhiNode" &&
+                                source.inner === basicBlockStart
+                            )
                         ) {
                             continuePropagation = true
                         }
                     }
                 }
+                const reflectiveEdges = self.dfgForwardEdges.get({
+                    type: "PhiNode",
+                    inner: basicBlockStart,
+                })!
+                for (const edge of reflectiveEdges) {
+                    // If there was a new element
+                    if (edges.insert({ ...edge })) {
+                        continuePropagation = true
+                    }
+                }
+                self.dfgForwardEdges.insert(
+                    { type: "PhiNode", inner: basicBlockStart },
+                    edges,
+                )
             }
         }
     },
