@@ -39,7 +39,7 @@ export const TopologicalIndex = {
 export interface CfgNode {
     /** Human readable name */
     label: string
-    /** Predesessors which can jump to the start of this basic block */
+    /** Predecessors which can jump to the start of this basic block */
     sources: Array<bigint>
     /** Successors which the end of this basic block can jump to */
     destinations: Array<bigint>
@@ -168,6 +168,10 @@ export const Analysis = {
             sbpfVersion,
         })
         Analysis.controlFlowGraphTarjan(result)
+        const basicBlockOutputs = Analysis.intraBasicBlockDataFlow(result, {
+            sbpfVersion: executable.sbpfVersion,
+        })
+        Analysis.interBasicBlockDataFlow(result, { basicBlockOutputs })
         return result
     },
 
@@ -751,5 +755,77 @@ export const Analysis = {
         })
         self.dfgForwardEdges = state.dfgEdgesMap
         return dataDependencies
+    },
+
+    /** Connect the dependencies inbetweeen the basic blocks */
+    interBasicBlockDataFlow(
+        self: Analysis,
+        {
+            basicBlockOutputs,
+        }: {
+            basicBlockOutputs: SortedMap<
+                bigint,
+                SortedMap<DataResource, bigint>
+            >
+        },
+    ) {
+        let continuePropagation = true
+        while (continuePropagation) {
+            continuePropagation = false
+            for (const basicBlockStart of [
+                // Reversed SCC id order to start from the lowest point in the program
+                ...self.topologicalOrder,
+            ].reverse()) {
+                // We need to connect such DFG nodes that had their source coming
+                // from other basic blocks, which was marked by PhiNode entry
+                // If edge doesn't have PhiNode - it means it's sources were resolved already
+                if (
+                    !self.dfgForwardEdges.has({
+                        type: "PhiNode",
+                        inner: basicBlockStart,
+                    })
+                ) {
+                    continue
+                }
+                const basicBlock = self.cfgNodes.get(basicBlockStart)!
+                // Edges = set of entries containing info was it a write-read or write-write,
+                // source and destination
+                const edges = self.dfgForwardEdges.get({
+                    type: "PhiNode",
+                    inner: basicBlockStart,
+                })!
+                self.dfgForwardEdges.insert(
+                    {
+                        type: "PhiNode",
+                        inner: basicBlockStart,
+                    },
+                    new SortedSet(),
+                )
+                // Loop through predecessors of the current basic block to find the original source
+                for (const predecessor of basicBlock.sources) {
+                    const providedOutputs = basicBlockOutputs.get(predecessor)!
+                    for (const edge of edges) {
+                        let sourceIsAPhiNode = false
+                        let source: DfgNode
+                        if (
+                            typeof providedOutputs.get(edge.resource) ===
+                            "undefined"
+                        ) {
+                            // If we found a resource in the predecessor - we write down
+                            // found instruction as a source
+                            source = {
+                                type: "InstructionNode",
+                                inner: providedOutputs.get(edge.resource)!,
+                            }
+                        } else {
+                            // If we didn't found the source - we "propagate" the
+                            // "phi node" marker to the predecessor's start of the block
+                            sourceIsAPhiNode = true
+                            source = { type: "PhiNode", inner: predecessor }
+                        }
+                    }
+                }
+            }
+        }
     },
 }
